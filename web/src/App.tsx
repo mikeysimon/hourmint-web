@@ -727,7 +727,7 @@ function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand-card">
-          <div className="brand-mark">HM</div>
+          <BrandMark className="brand-mark" />
           <div>
             <p className="eyebrow">HourMint</p>
             <h1>{settingsForm.business_name || 'HourMint'}</h1>
@@ -779,12 +779,10 @@ function App() {
                   Your existing data is now structured for mobile and desktop use, with invoice files and branding ready to travel with you.
                 </p>
               </div>
-              {logoUrl ? (
-                <div className="hero-card__brand">
-                  <span className="hero-card__brand-label">Brand system</span>
-                  <img className="hero-card__logo" src={logoUrl} alt="Company logo" />
-                </div>
-              ) : null}
+              <div className="hero-card__brand">
+                <span className="hero-card__brand-label">Brand system</span>
+                <BrandLockup name={settingsForm.business_name || 'HourMint'} />
+              </div>
             </div>
 
             <div className="stats-grid">
@@ -1188,13 +1186,15 @@ function App() {
                 </label>
               </div>
 
-              <div className="selection-toolbar">
-                <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))}>
-                  Select all
-                </button>
-                <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds([])}>
-                  Clear
-                </button>
+              <div className="selection-toolbar selection-toolbar--invoice">
+                <div className="selection-toolbar__group">
+                  <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))}>
+                    Select all
+                  </button>
+                  <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds([])}>
+                    Clear
+                  </button>
+                </div>
                 <button className="button button--primary" type="button" onClick={() => void generateInvoice()}>
                   <FileText size={16} />
                   <span>Generate invoice PDFs</span>
@@ -1319,7 +1319,7 @@ function App() {
                 <label className="field field--wide">
                   <span>Brand logo</span>
                   <div className="upload-box">
-                    {logoUrl ? <img className="logo-preview" src={logoUrl} alt="Current brand logo" /> : null}
+                    {logoUrl ? <img className="logo-preview" src={logoUrl} alt="Reference brand logo" /> : null}
                     <label className="button button--ghost">
                       <Upload size={16} />
                       <span>Upload logo</span>
@@ -1387,6 +1387,70 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof CircleDollarSign;
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
+  )
+}
+
+function BrandMark({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="64" height="64" rx="18" fill="url(#brand-mark-gradient)" />
+      <path
+        d="M22 16H31.5C39.5081 16 46 22.4919 46 30.5C46 38.5081 39.5081 45 31.5 45H28V54H22V16Z"
+        fill="#F7FBF9"
+      />
+      <path
+        d="M28 22V39H31C35.9706 39 40 34.9706 40 30C40 25.0294 35.9706 21 31 21H28V22Z"
+        fill="#0E7670"
+      />
+      <circle cx="37.5" cy="26.5" r="5.5" fill="#E9C778" />
+      <defs>
+        <linearGradient id="brand-mark-gradient" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#0B6B70" />
+          <stop offset="1" stopColor="#63D7A3" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function BrandLockup({ name }: { name: string }) {
+  const lines = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .reduce<string[]>((acc, word) => {
+      if (!acc.length) return [word]
+      if (acc[acc.length - 1].length + word.length < 14 && acc.length < 3) {
+        acc[acc.length - 1] = `${acc[acc.length - 1]} ${word}`
+        return acc
+      }
+      if (acc.length < 3) {
+        acc.push(word)
+        return acc
+      }
+      acc[acc.length - 1] = `${acc[acc.length - 1]} ${word}`
+      return acc
+    }, [])
+
+  return (
+    <div className="brand-lockup">
+      <div className="brand-lockup__mark-wrap">
+        <BrandMark className="brand-lockup__mark" />
+      </div>
+      <div className="brand-lockup__copy">
+        <span className="brand-lockup__eyebrow">HourMint workspace</span>
+        <div className="brand-lockup__name" aria-label={name}>
+          {lines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
