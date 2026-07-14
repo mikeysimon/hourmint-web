@@ -734,11 +734,6 @@ function App() {
           </div>
         </div>
 
-        <div className="session-card">
-          <span className="session-label">Long session ID</span>
-          <strong>{getSessionFingerprint(session)}</strong>
-        </div>
-
         <nav className="nav">
           {sections.map((section) => {
             const Icon = section.icon
@@ -784,7 +779,12 @@ function App() {
                   Your existing data is now structured for mobile and desktop use, with invoice files and branding ready to travel with you.
                 </p>
               </div>
-              {logoUrl ? <img className="hero-card__logo" src={logoUrl} alt="Company logo" /> : null}
+              {logoUrl ? (
+                <div className="hero-card__brand">
+                  <span className="hero-card__brand-label">Brand system</span>
+                  <img className="hero-card__logo" src={logoUrl} alt="Company logo" />
+                </div>
+              ) : null}
             </div>
 
             <div className="stats-grid">
@@ -792,6 +792,7 @@ function App() {
               <StatCard label="Paid" value={formatCurrency(metrics.totalPaid)} icon={CheckCircle2} />
               <StatCard label="Outstanding" value={formatCurrency(metrics.totalOutstanding)} icon={Receipt} />
               <StatCard label="Tracked hours" value={formatHours(metrics.totalHours)} icon={CalendarClock} />
+              <StatCard label="Uninvoiced hours" value={formatHours(metrics.uninvoicedHours)} icon={FileText} />
             </div>
 
             <div className="panel-grid">
@@ -1407,19 +1408,6 @@ function toInputDateTime(value: Date) {
 
 function formatReadableDateTime(value: string) {
   return format(new Date(value), 'MMM d, yyyy h:mm a')
-}
-
-function getSessionFingerprint(session: Session) {
-  const token = session.access_token.split('.')[1]
-  try {
-    const payload = JSON.parse(window.atob(token.replace(/-/g, '+').replace(/_/g, '/'))) as {
-      session_id?: string
-      sub?: string
-    }
-    return payload.session_id ?? payload.sub ?? 'session-active'
-  } catch {
-    return 'session-active'
-  }
 }
 
 export default App

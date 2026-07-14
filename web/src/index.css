@@ -89,7 +89,6 @@ a {
 }
 
 .brand-card,
-.session-card,
 .panel,
 .record-card,
 .stat-card,
@@ -145,24 +144,6 @@ a {
 
 .brand-card h1 {
   font-size: 1.25rem;
-}
-
-.session-card {
-  border-radius: 22px;
-  padding: 16px 18px;
-}
-
-.session-label {
-  display: block;
-  font-size: 0.78rem;
-  margin-bottom: 6px;
-  color: var(--text-soft);
-}
-
-.session-card strong {
-  display: block;
-  overflow-wrap: anywhere;
-  font-size: 0.9rem;
 }
 
 .nav {
@@ -255,6 +236,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   color: var(--text-soft);
 }
 
@@ -283,10 +265,33 @@ a {
   color: rgba(255, 255, 255, 0.82);
 }
 
+.hero-card__brand {
+  min-width: 220px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.hero-card__brand-label {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .hero-card__logo {
-  max-height: 88px;
+  width: 100%;
   max-width: 220px;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+  max-height: 112px;
+  object-fit: contain;
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(247, 251, 249, 0.96);
+  box-shadow: 0 18px 30px rgba(5, 39, 37, 0.22);
 }
 
 .stats-grid,
@@ -298,7 +303,7 @@ a {
 }
 
 .stats-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .panel-grid {
@@ -649,12 +654,16 @@ a {
   }
 
   .workspace {
-    padding: 18px 18px 112px;
+    padding: 18px 18px 164px;
   }
 
   .hero-card {
     flex-direction: column;
     align-items: start;
+  }
+
+  .hero-card__logo {
+    max-width: 100%;
   }
 
   .stats-grid,
@@ -687,7 +696,7 @@ a {
     right: 12px;
     bottom: 12px;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     padding: 10px;
     border-radius: 24px;
@@ -701,6 +710,7 @@ a {
     flex-direction: column;
     gap: 6px;
     padding: 10px 6px;
-    font-size: 0.7rem;
+    min-width: 0;
+    font-size: 0.72rem;
   }
 }
