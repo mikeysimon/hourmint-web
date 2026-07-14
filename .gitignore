@@ -1,0 +1,13 @@
+HourMint.app/
+dist/
+tmp/
+web/node_modules/
+web/dist/
+web/.vite/
+web/.env
+supabase/.temp/
+supabase/legacy_seed.sql
+assets/data/
+assets/invoices/
+assets/logos/company_logo.png
+.DS_Store
