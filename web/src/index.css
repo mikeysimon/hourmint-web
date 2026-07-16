@@ -706,7 +706,7 @@ a {
   }
 
   .workspace {
-    padding: 18px 16px 132px;
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 156px;
   }
 
   .hero-card {
@@ -850,7 +850,7 @@ a {
     position: fixed;
     left: 14px;
     right: 14px;
-    bottom: 10px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 42px);
     display: flex;
     align-items: stretch;
     gap: 4px;
@@ -883,7 +883,7 @@ a {
 
 @media (max-width: 520px) {
   .workspace {
-    padding: 16px 14px 128px;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 14px 152px;
   }
 
   .eyebrow {
@@ -962,7 +962,7 @@ a {
   .mobile-nav {
     left: 10px;
     right: 10px;
-    bottom: 8px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
     padding: 7px;
     border-radius: 24px;
   }
