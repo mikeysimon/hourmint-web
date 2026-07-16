@@ -388,13 +388,39 @@ a {
 .field input,
 .field select,
 .field textarea {
+  display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 16px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.96);
   color: var(--text-main);
   padding: 13px 14px;
   outline: none;
+}
+
+.field input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
+}
+
+.field input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-height: 1.4em;
+  text-align: left;
+}
+
+.field input[type="datetime-local"]::-webkit-datetime-edit {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.field input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .field textarea {
