@@ -882,10 +882,10 @@ a {
     gap: 4px;
     padding: 6px;
     border-radius: 26px;
-    background: rgba(255, 255, 255, 0.88);
-    border: 1px solid var(--border);
-    box-shadow: 0 18px 38px rgba(31, 58, 49, 0.14);
-    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.66);
+    border: 1px solid rgba(28, 79, 69, 0.08);
+    box-shadow: 0 18px 38px rgba(31, 58, 49, 0.1);
+    backdrop-filter: blur(24px) saturate(1.1);
   }
 
   .mobile-nav__item {
