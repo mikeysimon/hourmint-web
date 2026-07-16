@@ -212,7 +212,7 @@ function drawSummary(context: PdfContext, entries: EnrichedEntry[], subtotal: nu
 }
 
 function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: EnrichedEntry[], y: number) {
-  const { doc, width, height, margin, contentWidth } = context
+  const { doc, width, margin, contentWidth } = context
   const grouped = new Map<string, EnrichedEntry[]>()
   for (const entry of entries) {
     const current = grouped.get(entry.project_name) ?? []
