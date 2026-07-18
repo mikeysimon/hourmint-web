@@ -364,6 +364,21 @@ a {
   gap: 12px;
 }
 
+.button-row--time {
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.field--inline {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.field--inline select,
+.field--inline input {
+  min-height: 46px;
+}
+
 .panel__header {
   margin-bottom: 18px;
 }
@@ -801,6 +816,15 @@ a {
     flex-direction: row;
     flex-wrap: wrap;
     width: 100%;
+  }
+
+  .button-row--time {
+    align-items: stretch;
+  }
+
+  .field--inline {
+    flex-basis: 100%;
+    min-width: 0;
   }
 
   .button-row .button {

@@ -44,6 +44,11 @@ type TimeEntryFormState = {
   description: string
 }
 
+type TimeEntryFilterState = {
+  project_id: string
+  date: string
+}
+
 type SettingsFormState = {
   business_name: string
   invoice_prefix: string
@@ -99,6 +104,11 @@ const emptyTimeEntryForm = (): TimeEntryFormState => ({
   description: '',
 })
 
+const emptyTimeEntryFilters: TimeEntryFilterState = {
+  project_id: '',
+  date: '',
+}
+
 const getSetting = (settings: SettingRecord[], key: string, fallback = '') =>
   settings.find((setting) => setting.key === key)?.value ?? fallback
 
@@ -117,6 +127,7 @@ function App() {
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm)
   const [projectForm, setProjectForm] = useState<ProjectFormState>(emptyProjectForm)
   const [timeEntryForm, setTimeEntryForm] = useState<TimeEntryFormState>(emptyTimeEntryForm())
+  const [timeEntryFilters, setTimeEntryFilters] = useState<TimeEntryFilterState>(emptyTimeEntryFilters)
   const [invoiceClientId, setInvoiceClientId] = useState<string>('')
   const [invoiceDetailLevel, setInvoiceDetailLevel] = useState<DetailLevel>('project')
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
@@ -235,6 +246,23 @@ function App() {
       .filter((entry) => !entry.invoiced && clientProjects.includes(entry.project_id))
       .sort((left, right) => left.start_at.localeCompare(right.start_at))
   }, [data.projects, data.timeEntries, invoiceClientId])
+
+  const filteredTimeEntries = useMemo(() => {
+    return data.timeEntries.filter((entry) => {
+      if (timeEntryFilters.project_id && entry.project_id !== Number(timeEntryFilters.project_id)) {
+        return false
+      }
+
+      if (timeEntryFilters.date) {
+        const entryDate = format(new Date(entry.start_at), 'yyyy-MM-dd')
+        if (entryDate !== timeEntryFilters.date) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [data.timeEntries, timeEntryFilters])
 
   const logoUrl = useMemo(() => {
     if (!settingsForm.company_logo_path) return ''
@@ -1084,14 +1112,41 @@ function App() {
                     required
                   />
                 </label>
-                <div className="button-row">
+                <div className="button-row button-row--time">
                   <button className="button button--primary" type="submit">
                     <Save size={16} />
                     <span>{timeEntryForm.id ? 'Update time' : 'Save time'}</span>
                   </button>
+                  <label className="field field--inline">
+                    <span>Project filter</span>
+                    <select
+                      value={timeEntryFilters.project_id}
+                      onChange={(event) => setTimeEntryFilters((current) => ({ ...current, project_id: event.target.value }))}
+                    >
+                      <option value="">All projects</option>
+                      {data.projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field field--inline">
+                    <span>Date filter</span>
+                    <input
+                      type="date"
+                      value={timeEntryFilters.date}
+                      onChange={(event) => setTimeEntryFilters((current) => ({ ...current, date: event.target.value }))}
+                    />
+                  </label>
                   {timeEntryForm.id ? (
                     <button className="button button--ghost" type="button" onClick={() => setTimeEntryForm(emptyTimeEntryForm())}>
                       Reset
+                    </button>
+                  ) : null}
+                  {(timeEntryFilters.project_id || timeEntryFilters.date) ? (
+                    <button className="button button--ghost" type="button" onClick={() => setTimeEntryFilters(emptyTimeEntryFilters)}>
+                      Clear filters
                     </button>
                   ) : null}
                 </div>
@@ -1099,7 +1154,8 @@ function App() {
             </div>
 
             <div className="list panel">
-              {data.timeEntries.map((entry) => {
+              {!filteredTimeEntries.length ? <p className="empty-state">No time entries match the current filters.</p> : null}
+              {filteredTimeEntries.map((entry) => {
                 const project = projectsById.get(entry.project_id)
                 return (
                   <article className="list-row list-row--stacked" key={entry.id}>
