@@ -80,23 +80,19 @@ function createSingleInvoicePdf(
     y = height - margin
   }
 
-  doc.setDrawColor('#D7E7E4')
-  doc.setLineWidth(1)
-  doc.line(margin, y, width - margin, y)
+  setStroke(doc, '#D7E7E4', 1)
+  drawLine(context, margin, y, width - margin, y)
   y -= 20
 
   const totalBoxWidth = 204
   const totalBoxHeight = 34
   const totalBoxY = y - 18
-  doc.setFillColor('#E8FBF3')
-  doc.roundedRect(width - margin - totalBoxWidth, totalBoxY, totalBoxWidth, totalBoxHeight, 12, 12, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor('#486172')
+  fillRoundedRect(context, width - margin - totalBoxWidth, totalBoxY, totalBoxWidth, totalBoxHeight, 12, '#E8FBF3')
+  setFont(doc, 'bold', 13, '#486172')
   const totalTextY = totalBoxY + totalBoxHeight / 2 + 4.5
-  doc.text('Invoice Total', width - margin - totalBoxWidth + 15, totalTextY)
-  doc.setTextColor('#173042')
-  doc.text(currency(subtotal), width - margin - 15, totalTextY, { align: 'right' })
+  drawText(context, 'Invoice Total', width - margin - totalBoxWidth + 15, totalTextY)
+  setFont(doc, 'bold', 13, '#173042')
+  drawText(context, currency(subtotal), width - margin - 15, totalTextY, { align: 'right' })
 
   finishPage(context)
   return doc.output('blob')
@@ -120,48 +116,38 @@ function drawHeader(
 
   if (logoDataUrl) {
     const dimensions = fitLogo(logoDataUrl, 3.1 * 72, 1.3 * 72)
-    doc.addImage(logoDataUrl, 'PNG', logoLeft, topY - dimensions.height, dimensions.width, dimensions.height)
+    addImageAtBottomLeft(context, logoDataUrl, logoLeft, topY - dimensions.height, dimensions.width, dimensions.height)
     drewLogo = true
   }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(17)
-  doc.setTextColor('#173042')
-  doc.text(fitText(doc, businessName, 'helvetica', 'bold', 17, rightWidth - 4), rightX, topY - 2)
+  setFont(doc, 'bold', 17, '#173042')
+  drawText(context, fitText(doc, businessName, 'helvetica', 'bold', 17, rightWidth - 4), rightX, topY - 2)
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10.5)
-  doc.setTextColor('#64748B')
-  doc.text('Professional services invoice', rightX, topY - 18)
+  setFont(doc, 'normal', 10.5, '#64748B')
+  drawText(context, 'Professional services invoice', rightX, topY - 18)
 
-  doc.setDrawColor('#DCEAE7')
-  doc.setLineWidth(1)
-  doc.line(rightX, topY - 28, width - margin, topY - 28)
+  setStroke(doc, '#DCEAE7', 1)
+  drawLine(context, rightX, topY - 28, width - margin, topY - 28)
 
   const metaStartY = topY - 46
   const labelX = rightX
   const valueX = rightX + 112
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9.5)
-  doc.setTextColor('#64748B')
-  doc.text('BILLED TO', labelX, metaStartY)
-  doc.text('INVOICE', labelX, metaStartY - 18)
-  doc.text('DATE', labelX, metaStartY - 36)
-  doc.text('DETAIL', labelX, metaStartY - 54)
+  setFont(doc, 'bold', 9.5, '#64748B')
+  drawText(context, 'BILLED TO', labelX, metaStartY)
+  drawText(context, 'INVOICE', labelX, metaStartY - 18)
+  drawText(context, 'DATE', labelX, metaStartY - 36)
+  drawText(context, 'DETAIL', labelX, metaStartY - 54)
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.setTextColor('#173042')
-  doc.text(fitText(doc, clientName, 'helvetica', 'bold', 11, rightWidth - 122), valueX, metaStartY)
-  doc.text(invoiceNumber, valueX, metaStartY - 18)
-  doc.text(formatDate(new Date()), valueX, metaStartY - 36)
-  doc.text(fitText(doc, detailLabel(detailLevel), 'helvetica', 'bold', 11, rightWidth - 122), valueX, metaStartY - 54)
+  setFont(doc, 'bold', 11, '#173042')
+  drawText(context, fitText(doc, clientName, 'helvetica', 'bold', 11, rightWidth - 122), valueX, metaStartY)
+  drawText(context, invoiceNumber, valueX, metaStartY - 18)
+  drawText(context, formatDate(new Date()), valueX, metaStartY - 36)
+  drawText(context, fitText(doc, detailLabel(detailLevel), 'helvetica', 'bold', 11, rightWidth - 122), valueX, metaStartY - 54)
 
   const headerBottom = Math.min(topY - (drewLogo ? 1.14 * 72 : 0), metaStartY - 60)
-  doc.setDrawColor('#BEE7D4')
-  doc.setLineWidth(2)
-  doc.line(margin, headerBottom - 10, width - margin, headerBottom - 10)
+  setStroke(doc, '#BEE7D4', 2)
+  drawLine(context, margin, headerBottom - 10, width - margin, headerBottom - 10)
   return headerBottom - 24
 }
 
@@ -180,8 +166,7 @@ function drawSummary(context: PdfContext, entries: EnrichedEntry[], subtotal: nu
   const boxHeight = 44
   const boxY = y - boxHeight
 
-  doc.setFillColor('#F6FBFA')
-  doc.roundedRect(margin, boxY, contentWidth, boxHeight, 16, 16, 'F')
+  fillRoundedRect(context, margin, boxY, contentWidth, boxHeight, 16, '#F6FBFA')
 
   const totalWeight = weights.reduce((sum, value) => sum + value, 0)
   const cellWidths = weights.map((value) => contentWidth * (value / totalWeight))
@@ -190,21 +175,17 @@ function drawSummary(context: PdfContext, entries: EnrichedEntry[], subtotal: nu
   summary.forEach(([heading, value], index) => {
     const currentWidth = cellWidths[index]
     if (index > 0) {
-      doc.setDrawColor('#E2ECE9')
-      doc.setLineWidth(1)
-      doc.line(cellX, boxY + 7, cellX, boxY + boxHeight - 7)
+      setStroke(doc, '#E2ECE9', 1)
+      drawLine(context, cellX, boxY + 7, cellX, boxY + boxHeight - 7)
     }
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor('#64748B')
-    doc.text(heading.toUpperCase(), cellX + currentWidth / 2, y - 14, { align: 'center' })
+    setFont(doc, 'bold', 9, '#64748B')
+    drawText(context, heading.toUpperCase(), cellX + currentWidth / 2, y - 14, { align: 'center' })
 
-    doc.setTextColor('#173042')
     const valueFont = index === 0 ? 10 : 14
-    doc.setFontSize(valueFont)
+    setFont(doc, 'bold', valueFont, '#173042')
     const finalValue =
       index === 0 ? fitText(doc, value, 'helvetica', 'bold', valueFont, Math.max(88, currentWidth - 22)) : value
-    doc.text(finalValue, cellX + currentWidth / 2, y - 27, { align: 'center' })
+    drawText(context, finalValue, cellX + currentWidth / 2, y - 27, { align: 'center' })
     cellX += currentWidth
   })
 
@@ -220,10 +201,8 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
     grouped.set(entry.project_name, current)
   }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor('#173042')
-  doc.text('Work Summary', margin, y)
+  setFont(doc, 'bold', 16, '#173042')
+  drawText(context, 'Work Summary', margin, y)
   y -= 12
 
   for (const [projectName, projectEntries] of grouped.entries()) {
@@ -237,28 +216,23 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
     const bubbleHeight = 23
     const bubbleY = y - 15
 
-    doc.setFillColor('#E8FBF3')
-    doc.roundedRect(margin, bubbleY, contentWidth, bubbleHeight, 11, 11, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11.5)
-    doc.setTextColor('#173042')
-    doc.text(
+    fillRoundedRect(context, margin, bubbleY, contentWidth, bubbleHeight, 11, '#E8FBF3')
+    setFont(doc, 'bold', 11.5, '#173042')
+    drawText(
+      context,
       fitText(doc, projectName, 'helvetica', 'bold', 11.5, Math.max(140, contentWidth - summaryWidth - 54)),
       margin + 18,
       bubbleY + 15.5,
     )
-    doc.setFontSize(9.5)
-    doc.setTextColor('#4A5E73')
-    doc.text(summaryText, width - margin - 18, bubbleY + 15.5, { align: 'right' })
+    setFont(doc, 'bold', 9.5, '#4A5E73')
+    drawText(context, summaryText, width - margin - 18, bubbleY + 15.5, { align: 'right' })
     y = bubbleY - 12
 
     if (detailLevel === 'summary') {
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      doc.setTextColor('#4A5E73')
-      doc.text('Project billed at the rate shown above.', margin + 6, y)
+      setFont(doc, 'normal', 10, '#4A5E73')
+      drawText(context, 'Project billed at the rate shown above.', margin + 6, y)
       y -= 10
-      drawSeparator(doc, margin, width, y)
+      drawSeparator(context, margin, width, y)
       y -= 7
       continue
     }
@@ -270,7 +244,7 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
         fontSize: 9.5,
         lineHeight: 11,
       })
-      drawSeparator(doc, margin, width, y - 2)
+      drawSeparator(context, margin, width, y - 2)
       y -= 7
       continue
     }
@@ -283,11 +257,9 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
       const blockHeight = 29 + wrappedLines.length * 12
       y = ensureSpace(context, y, blockHeight + 3)
 
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(9.5)
-      doc.setTextColor('#173042')
-      doc.text(`${formatDateTime(item.start_at)} - ${formatTime(item.end_at)}`, margin + 14, y)
-      doc.text(`${formatHours(item.hours)} hrs   •   ${currency(item.hours * item.rate)}`, width - margin - 14, y, {
+      setFont(doc, 'bold', 9.5, '#173042')
+      drawText(context, `${formatDateTime(item.start_at)} - ${formatTime(item.end_at)}`, margin + 14, y)
+      drawText(context, `${formatHours(item.hours)} hrs   •   ${currency(item.hours * item.rate)}`, width - margin - 14, y, {
         align: 'right',
       })
       y -= 18
@@ -296,7 +268,7 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
         fontSize: 9.5,
         lineHeight: 12,
       })
-      drawSeparator(doc, margin, width, y - 1)
+      drawSeparator(context, margin, width, y - 1)
       y -= 12
     }
   }
@@ -323,7 +295,7 @@ function drawWrappedText(
   doc.setTextColor(color)
   for (const line of lines) {
     y = ensurePage(context, y)
-    doc.text(line, x, y)
+    drawText(context, line, x, y)
     y -= options.lineHeight
   }
   return y
@@ -375,10 +347,9 @@ function fitText(
   return shortened ? `${shortened}…` : clean
 }
 
-function drawSeparator(doc: jsPDF, margin: number, width: number, y: number) {
-  doc.setDrawColor('#E2ECE9')
-  doc.setLineWidth(1)
-  doc.line(margin, y, width - margin, y)
+function drawSeparator(context: PdfContext, margin: number, width: number, y: number) {
+  setStroke(context.doc, '#E2ECE9', 1)
+  drawLine(context, margin, y, width - margin, y)
 }
 
 function ensurePage(context: PdfContext, y: number) {
@@ -419,18 +390,69 @@ function drawBrandFooter(context: PdfContext) {
   const startX = centerX - totalWidth / 2
 
   if (footerIconDataUrl) {
-    doc.addImage(footerIconDataUrl, 'PNG', startX, footerY - 1, 13, 13)
+    addImageAtBottomLeft(context, footerIconDataUrl, startX, footerY - 1, 13, 13)
   }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.setTextColor('#5D6C84')
-  doc.text(labelText, startX + 16, footerY + 8)
+  setFont(doc, 'bold', 8.5, '#5D6C84')
+  drawText(context, labelText, startX + 16, footerY + 8)
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor('#8A98AD')
-  doc.text(metaText, startX + 16 + labelWidth + 8, footerY + 8)
+  setFont(doc, 'normal', 7.5, '#8A98AD')
+  drawText(context, metaText, startX + 16 + labelWidth + 8, footerY + 8)
+}
+
+function toJsPdfY(_context: PdfContext, y: number) {
+  return _context.height - y
+}
+
+function toJsPdfTop(_context: PdfContext, bottomY: number, height: number) {
+  return _context.height - bottomY - height
+}
+
+function setFont(doc: jsPDF, style: 'normal' | 'bold', size: number, color: string) {
+  doc.setFont('helvetica', style)
+  doc.setFontSize(size)
+  doc.setTextColor(color)
+}
+
+function setStroke(doc: jsPDF, color: string, width: number) {
+  doc.setDrawColor(color)
+  doc.setLineWidth(width)
+}
+
+function drawText(
+  context: PdfContext,
+  text: string,
+  x: number,
+  y: number,
+  options?: { align?: 'left' | 'center' | 'right' },
+) {
+  context.doc.text(text, x, toJsPdfY(context, y), options)
+}
+
+function drawLine(context: PdfContext, x1: number, y1: number, x2: number, y2: number) {
+  context.doc.line(x1, toJsPdfY(context, y1), x2, toJsPdfY(context, y2))
+}
+
+function fillRoundedRect(context: PdfContext, x: number, y: number, width: number, height: number, radius: number, color: string) {
+  context.doc.setFillColor(color)
+  context.doc.roundedRect(x, toJsPdfTop(context, y, height), width, height, radius, radius, 'F')
+}
+
+function addImageAtBottomLeft(
+  context: PdfContext,
+  dataUrl: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  context.doc.addImage(dataUrl, imageFormat(dataUrl), x, toJsPdfTop(context, y, height), width, height)
+}
+
+function imageFormat(dataUrl: string) {
+  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'JPEG'
+  if (dataUrl.startsWith('data:image/webp')) return 'WEBP'
+  return 'PNG'
 }
 
 function fitLogo(dataUrl: string, maxWidth: number, maxHeight: number) {
