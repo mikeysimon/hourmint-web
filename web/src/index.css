@@ -1091,8 +1091,7 @@ a {
   }
 
   .time-toolbar,
-  .time-toolbar__group,
-  .calendar-toolbar {
+  .time-toolbar__group {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1105,9 +1104,41 @@ a {
     flex: 1 1 0;
   }
 
-  .field--inline {
-    flex-basis: 100%;
+  .time-toolbar__group--filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+    gap: 8px;
+    width: 100%;
+  }
+
+  .time-toolbar__group--filters .field--inline {
     min-width: 0;
+    margin: 0;
+  }
+
+  .time-toolbar__group--filters .field--inline span {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.69rem;
+    letter-spacing: 0.015em;
+  }
+
+  .time-toolbar__group--filters .field--inline select,
+  .time-toolbar__group--filters .field--inline input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 40px;
+    padding: 8px 9px;
+    font-size: 0.77rem;
+  }
+
+  .time-toolbar__group--filters .button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    min-height: 36px;
+    padding-inline: 11px;
+    font-size: 0.76rem;
   }
 
   .button-row .button {
@@ -1215,7 +1246,30 @@ a {
 
   .calendar-grid {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 5px;
+    gap: 4px;
+  }
+
+  .calendar-toolbar {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .calendar-toolbar .button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 10px;
+  }
+
+  .calendar-toolbar .button span {
+    display: none;
+  }
+
+  .calendar-toolbar strong {
+    flex: 1;
+    text-align: center;
+    font-size: 1.02rem;
   }
 
   .calendar-grid--labels {
@@ -1224,18 +1278,21 @@ a {
   }
 
   .calendar-day {
-    min-height: 58px;
-    padding: 7px;
-    border-radius: 12px;
+    min-height: 54px;
+    padding: 4px;
+    border-radius: 11px;
     gap: 0;
   }
 
   .calendar-day__header {
+    position: relative;
+    display: block;
     height: 100%;
-    align-items: center;
   }
 
   .calendar-day__date {
+    display: grid;
+    place-items: center;
     width: 100%;
     height: 100%;
     padding: 4px;
@@ -1254,20 +1311,24 @@ a {
   }
 
   .calendar-day__count {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    z-index: 1;
     display: grid;
     place-items: center;
-    min-width: 17px;
-    height: 17px;
+    min-width: 16px;
+    height: 16px;
     padding: 0 4px;
     border-radius: 999px;
     background: var(--accent);
     color: white;
-    font-size: 0.61rem;
+    font-size: 0.58rem;
     font-weight: 700;
   }
 
   .calendar-grid__label {
-    font-size: 0.59rem;
+    font-size: 0.56rem;
     letter-spacing: 0.02em;
   }
 
