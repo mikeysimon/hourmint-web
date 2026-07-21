@@ -130,7 +130,7 @@ function App() {
   const [projectForm, setProjectForm] = useState<ProjectFormState>(emptyProjectForm)
   const [timeEntryForm, setTimeEntryForm] = useState<TimeEntryFormState>(emptyTimeEntryForm())
   const [timeEntryFilters, setTimeEntryFilters] = useState<TimeEntryFilterState>(emptyTimeEntryFilters)
-  const [timeView, setTimeView] = useState<TimeView>('list')
+  const [timeView, setTimeView] = useState<TimeView>('calendar')
   const [timeEntryModalOpen, setTimeEntryModalOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()))
   const [calendarDayModalDate, setCalendarDayModalDate] = useState<Date | null>(null)
@@ -298,6 +298,14 @@ function App() {
     }
     return days
   }, [calendarMonth])
+
+  const calendarMonthSummary = useMemo(() => {
+    const entries = calendarEntries.filter((entry) => isSameMonth(new Date(entry.start_at), calendarMonth))
+    return {
+      count: entries.length,
+      hours: entries.reduce((total, entry) => total + entry.hours, 0),
+    }
+  }, [calendarEntries, calendarMonth])
 
   const calendarDayModalEntries = useMemo(() => {
     if (!calendarDayModalDate) return []
@@ -1259,6 +1267,11 @@ function App() {
               </div>
             ) : (
               <div className="panel panel--form">
+                <div className="calendar-summary" aria-label="Calendar totals">
+                  <span>{format(calendarMonth, 'MMMM')} total</span>
+                  <strong>{calendarMonthSummary.count} {calendarMonthSummary.count === 1 ? 'entry' : 'entries'}</strong>
+                  <b>{formatHours(calendarMonthSummary.hours)}</b>
+                </div>
                 <div className="calendar-toolbar">
                   <button className="button button--ghost" type="button" onClick={() => setCalendarMonth((current) => addMonths(current, -1))}>
                     <ChevronLeft size={16} />

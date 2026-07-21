@@ -622,6 +622,28 @@ a {
   margin-bottom: 16px;
 }
 
+.calendar-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border: 1px solid rgba(14, 118, 112, 0.12);
+  border-radius: 999px;
+  background: rgba(232, 251, 243, 0.72);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.calendar-summary strong,
+.calendar-summary b {
+  color: var(--text-main);
+}
+
+.calendar-summary b {
+  color: var(--accent-strong);
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1113,6 +1135,8 @@ a {
 
   .time-toolbar__group--filters .field--inline {
     min-width: 0;
+    min-inline-size: 0;
+    overflow: hidden;
     margin: 0;
   }
 
@@ -1127,10 +1151,15 @@ a {
   .time-toolbar__group--filters .field--inline input {
     width: 100%;
     min-width: 0;
+    min-inline-size: 0;
     max-width: 100%;
     min-height: 40px;
     padding: 8px 9px;
     font-size: 0.77rem;
+  }
+
+  .time-toolbar__group--filters input[type='date'] {
+    letter-spacing: -0.03em;
   }
 
   .time-toolbar__group--filters .button {
@@ -1254,6 +1283,15 @@ a {
     align-items: center;
     gap: 6px;
     margin-bottom: 12px;
+  }
+
+  .calendar-summary {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 11px;
+    padding: 7px 10px;
+    font-size: 0.71rem;
   }
 
   .calendar-toolbar .button {
