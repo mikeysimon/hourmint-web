@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
-import { CalendarClock, CheckCircle2, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LoaderCircle, LogOut, Receipt, Save, Settings, Timer, Users, BriefcaseBusiness, Upload, Trash2, PencilLine, ShieldCheck, Smartphone } from 'lucide-react'
+import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LoaderCircle, LogOut, Plus, Receipt, Save, Settings, Timer, Users, BriefcaseBusiness, Upload, Trash2, PencilLine, ShieldCheck, Smartphone, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 
 import { createInvoicePdfBundle } from './lib/invoices'
@@ -48,6 +48,8 @@ type TimeEntryFilterState = {
   project_id: string
   date: string
 }
+
+type TimeView = 'list' | 'calendar'
 
 type SettingsFormState = {
   business_name: string
@@ -128,6 +130,9 @@ function App() {
   const [projectForm, setProjectForm] = useState<ProjectFormState>(emptyProjectForm)
   const [timeEntryForm, setTimeEntryForm] = useState<TimeEntryFormState>(emptyTimeEntryForm())
   const [timeEntryFilters, setTimeEntryFilters] = useState<TimeEntryFilterState>(emptyTimeEntryFilters)
+  const [timeView, setTimeView] = useState<TimeView>('list')
+  const [timeEntryModalOpen, setTimeEntryModalOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()))
   const [invoiceClientId, setInvoiceClientId] = useState<string>('')
   const [invoiceDetailLevel, setInvoiceDetailLevel] = useState<DetailLevel>('project')
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
@@ -264,6 +269,35 @@ function App() {
     })
   }, [data.timeEntries, timeEntryFilters])
 
+  const calendarEntries = useMemo(() => {
+    return data.timeEntries.filter((entry) => {
+      if (timeEntryFilters.project_id && entry.project_id !== Number(timeEntryFilters.project_id)) {
+        return false
+      }
+
+      if (timeEntryFilters.date) {
+        const entryDate = format(new Date(entry.start_at), 'yyyy-MM-dd')
+        if (entryDate !== timeEntryFilters.date) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [data.timeEntries, timeEntryFilters])
+
+  const calendarGridDays = useMemo(() => {
+    const start = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 0 })
+    const end = endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 0 })
+    const days: Date[] = []
+    let cursor = start
+    while (cursor <= end) {
+      days.push(cursor)
+      cursor = addDays(cursor, 1)
+    }
+    return days
+  }, [calendarMonth])
+
   const logoUrl = useMemo(() => {
     if (!settingsForm.company_logo_path) return ''
     return supabase.storage.from('branding').getPublicUrl(settingsForm.company_logo_path).data.publicUrl
@@ -284,6 +318,12 @@ function App() {
       )
     }
   }, [invoiceEntries, selectedEntryIds.length])
+
+  useEffect(() => {
+    if (timeEntryFilters.date) {
+      setCalendarMonth(startOfMonth(new Date(`${timeEntryFilters.date}T12:00:00`)))
+    }
+  }, [timeEntryFilters.date])
 
   async function loadAppData() {
     setLoadingApp(true)
@@ -459,9 +499,39 @@ function App() {
       if (error) throw error
 
       setTimeEntryForm(emptyTimeEntryForm())
+      setTimeEntryModalOpen(false)
       setStatusMessage(timeEntryForm.id ? 'Time entry updated.' : 'Time entry created.')
       await loadAppData()
     })
+  }
+
+  function openNewTimeEntry(targetDate?: Date) {
+    const start = targetDate ? withRoundedHour(targetDate) : new Date()
+    const end = new Date(start.getTime() + 60 * 60 * 1000)
+    setTimeEntryForm({
+      id: null,
+      project_id: '',
+      start_at: toInputDateTime(start),
+      end_at: toInputDateTime(end),
+      description: '',
+    })
+    setTimeEntryModalOpen(true)
+  }
+
+  function openEditTimeEntry(entry: TimeEntryRecord) {
+    setTimeEntryForm({
+      id: entry.id,
+      project_id: String(entry.project_id),
+      start_at: toInputDateTime(new Date(entry.start_at)),
+      end_at: toInputDateTime(new Date(entry.end_at)),
+      description: entry.description,
+    })
+    setTimeEntryModalOpen(true)
+  }
+
+  function closeTimeEntryModal() {
+    setTimeEntryModalOpen(false)
+    setTimeEntryForm(emptyTimeEntryForm())
   }
 
   async function deleteRow(table: 'clients' | 'projects' | 'time_entries' | 'invoices', id: number) {
@@ -1066,57 +1136,33 @@ function App() {
           <section className="section-stack">
             <div className="panel panel--form">
               <div className="panel__header">
-                <h3>{timeEntryForm.id ? 'Edit time entry' : 'Track time'}</h3>
+                <h3>Time workspace</h3>
                 <CalendarClock size={18} />
               </div>
-              <form className="form-grid" onSubmit={saveTimeEntry}>
-                <label className="field">
-                  <span>Project</span>
-                  <select
-                    value={timeEntryForm.project_id}
-                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, project_id: event.target.value }))}
-                    required
-                  >
-                    <option value="">Select a project</option>
-                    {data.projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Start</span>
-                  <input
-                    type="datetime-local"
-                    value={timeEntryForm.start_at}
-                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, start_at: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>End</span>
-                  <input
-                    type="datetime-local"
-                    value={timeEntryForm.end_at}
-                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, end_at: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="field field--wide">
-                  <span>Description</span>
-                  <textarea
-                    rows={4}
-                    value={timeEntryForm.description}
-                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, description: event.target.value }))}
-                    required
-                  />
-                </label>
-                <div className="button-row button-row--time">
-                  <button className="button button--primary" type="submit">
-                    <Save size={16} />
-                    <span>{timeEntryForm.id ? 'Update time' : 'Save time'}</span>
+              <div className="time-toolbar">
+                <div className="time-toolbar__group">
+                  <button className="button button--primary" type="button" onClick={() => openNewTimeEntry()}>
+                    <Plus size={16} />
+                    <span>New entry</span>
                   </button>
+                  <div className="view-toggle" role="tablist" aria-label="Time view">
+                    <button
+                      className={`view-toggle__item ${timeView === 'list' ? 'view-toggle__item--active' : ''}`}
+                      type="button"
+                      onClick={() => setTimeView('list')}
+                    >
+                      List
+                    </button>
+                    <button
+                      className={`view-toggle__item ${timeView === 'calendar' ? 'view-toggle__item--active' : ''}`}
+                      type="button"
+                      onClick={() => setTimeView('calendar')}
+                    >
+                      Calendar
+                    </button>
+                  </div>
+                </div>
+                <div className="time-toolbar__group time-toolbar__group--filters">
                   <label className="field field--inline">
                     <span>Project filter</span>
                     <select
@@ -1139,71 +1185,113 @@ function App() {
                       onChange={(event) => setTimeEntryFilters((current) => ({ ...current, date: event.target.value }))}
                     />
                   </label>
-                  {timeEntryForm.id ? (
-                    <button className="button button--ghost" type="button" onClick={() => setTimeEntryForm(emptyTimeEntryForm())}>
-                      Reset
-                    </button>
-                  ) : null}
                   {(timeEntryFilters.project_id || timeEntryFilters.date) ? (
                     <button className="button button--ghost" type="button" onClick={() => setTimeEntryFilters(emptyTimeEntryFilters)}>
                       Clear filters
                     </button>
                   ) : null}
                 </div>
-              </form>
+              </div>
             </div>
 
-            <div className="list panel">
-              {!filteredTimeEntries.length ? <p className="empty-state">No time entries match the current filters.</p> : null}
-              {filteredTimeEntries.map((entry) => {
-                const project = projectsById.get(entry.project_id)
-                return (
-                  <article className="list-row list-row--stacked" key={entry.id}>
-                    <div>
-                      <div className="list-row__title">
-                        <strong>{project?.name ?? 'Unknown project'}</strong>
-                        <span className={`badge ${entry.invoiced ? 'badge--paid' : 'badge--open'}`}>{entry.invoiced ? 'invoiced' : 'open'}</span>
+            {timeView === 'list' ? (
+              <div className="list panel">
+                {!filteredTimeEntries.length ? <p className="empty-state">No time entries match the current filters.</p> : null}
+                {filteredTimeEntries.map((entry) => {
+                  const project = projectsById.get(entry.project_id)
+                  return (
+                    <article className="list-row list-row--stacked" key={entry.id}>
+                      <div>
+                        <div className="list-row__title">
+                          <strong>{project?.name ?? 'Unknown project'}</strong>
+                          <span className={`badge ${entry.invoiced ? 'badge--paid' : 'badge--open'}`}>{entry.invoiced ? 'invoiced' : 'open'}</span>
+                        </div>
+                        <p>{entry.description}</p>
+                        <small>
+                          {formatReadableDateTime(entry.start_at)} to {formatReadableDateTime(entry.end_at)}
+                        </small>
                       </div>
-                      <p>{entry.description}</p>
-                      <small>
-                        {formatReadableDateTime(entry.start_at)} to {formatReadableDateTime(entry.end_at)}
-                      </small>
-                    </div>
-                    <div className="list-row__meta list-row__meta--actions">
-                      <strong>{formatHours(entry.hours)} hrs</strong>
-                      <div className="button-row">
-                        <button
-                          className="button button--ghost"
-                          disabled={entry.invoiced}
-                          type="button"
-                          onClick={() =>
-                            setTimeEntryForm({
-                              id: entry.id,
-                              project_id: String(entry.project_id),
-                              start_at: toInputDateTime(new Date(entry.start_at)),
-                              end_at: toInputDateTime(new Date(entry.end_at)),
-                              description: entry.description,
-                            })
-                          }
-                        >
-                          <PencilLine size={16} />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          className="button button--danger"
-                          disabled={entry.invoiced}
-                          type="button"
-                          onClick={() => void deleteRow('time_entries', entry.id)}
-                        >
-                          <Trash2 size={16} />
-                          <span>Delete</span>
-                        </button>
+                      <div className="list-row__meta list-row__meta--actions">
+                        <strong>{formatHours(entry.hours)}</strong>
+                        <div className="button-row">
+                          <button
+                            className="button button--ghost"
+                            disabled={entry.invoiced}
+                            type="button"
+                            onClick={() => openEditTimeEntry(entry)}
+                          >
+                            <PencilLine size={16} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            className="button button--danger"
+                            disabled={entry.invoiced}
+                            type="button"
+                            onClick={() => void deleteRow('time_entries', entry.id)}
+                          >
+                            <Trash2 size={16} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="panel panel--form">
+                <div className="calendar-toolbar">
+                  <button className="button button--ghost" type="button" onClick={() => setCalendarMonth((current) => addMonths(current, -1))}>
+                    <ChevronLeft size={16} />
+                    <span>Prev</span>
+                  </button>
+                  <strong>{format(calendarMonth, 'MMMM yyyy')}</strong>
+                  <button className="button button--ghost" type="button" onClick={() => setCalendarMonth((current) => addMonths(current, 1))}>
+                    <span>Next</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                <div className="calendar-grid calendar-grid--labels">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                    <span className="calendar-grid__label" key={label}>{label}</span>
+                  ))}
+                </div>
+                <div className="calendar-grid">
+                  {calendarGridDays.map((day) => {
+                    const dayEntries = calendarEntries
+                      .filter((entry) => isSameDay(new Date(entry.start_at), day))
+                      .sort((left, right) => left.start_at.localeCompare(right.start_at))
+                    const dayHours = dayEntries.reduce((sum, entry) => sum + entry.hours, 0)
+
+                    return (
+                      <div className={`calendar-day ${isSameMonth(day, calendarMonth) ? '' : 'calendar-day--muted'}`} key={day.toISOString()}>
+                        <div className="calendar-day__header">
+                          <button className="calendar-day__date" type="button" onClick={() => openNewTimeEntry(day)}>
+                            {format(day, 'd')}
+                          </button>
+                          {dayHours ? <span className="badge badge--money">{formatHours(dayHours)}</span> : null}
+                        </div>
+                        <div className="calendar-day__entries">
+                          {dayEntries.slice(0, 3).map((entry) => (
+                            <button
+                              className={`calendar-entry ${entry.invoiced ? 'calendar-entry--locked' : ''}`}
+                              disabled={entry.invoiced}
+                              key={entry.id}
+                              type="button"
+                              onClick={() => openEditTimeEntry(entry)}
+                            >
+                              <span>{projectsById.get(entry.project_id)?.name ?? 'Unknown project'}</span>
+                              <small>{formatHours(entry.hours)}</small>
+                            </button>
+                          ))}
+                          {dayEntries.length > 3 ? <small className="calendar-day__more">+{dayEntries.length - 3} more</small> : null}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </section>
         ) : null}
 
@@ -1420,6 +1508,72 @@ function App() {
             )
           })}
         </nav>
+
+        {timeEntryModalOpen ? (
+          <div className="modal-backdrop" role="presentation" onClick={closeTimeEntryModal}>
+            <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="time-entry-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="panel__header">
+                <h3 id="time-entry-modal-title">{timeEntryForm.id ? 'Edit time entry' : 'New time entry'}</h3>
+                <button className="button button--ghost button--icon" type="button" onClick={closeTimeEntryModal} aria-label="Close time entry form">
+                  <X size={16} />
+                </button>
+              </div>
+              <form className="form-grid" onSubmit={saveTimeEntry}>
+                <label className="field">
+                  <span>Project</span>
+                  <select
+                    value={timeEntryForm.project_id}
+                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, project_id: event.target.value }))}
+                    required
+                  >
+                    <option value="">Select a project</option>
+                    {data.projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Start</span>
+                  <input
+                    type="datetime-local"
+                    value={timeEntryForm.start_at}
+                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, start_at: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  <span>End</span>
+                  <input
+                    type="datetime-local"
+                    value={timeEntryForm.end_at}
+                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, end_at: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="field field--wide">
+                  <span>Description</span>
+                  <textarea
+                    rows={4}
+                    value={timeEntryForm.description}
+                    onChange={(event) => setTimeEntryForm((current) => ({ ...current, description: event.target.value }))}
+                    required
+                  />
+                </label>
+                <div className="button-row button-row--time">
+                  <button className="button button--primary" type="submit">
+                    <Save size={16} />
+                    <span>{timeEntryForm.id ? 'Update time' : 'Save time'}</span>
+                  </button>
+                  <button className="button button--ghost" type="button" onClick={closeTimeEntryModal}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   )
@@ -1524,6 +1678,15 @@ function formatHours(value: number) {
 function toInputDateTime(value: Date) {
   const adjusted = new Date(value.getTime() - value.getTimezoneOffset() * 60_000)
   return adjusted.toISOString().slice(0, 16)
+}
+
+function withRoundedHour(value: Date) {
+  const next = new Date(value)
+  next.setMinutes(0, 0, 0)
+  if (next < value) {
+    next.setHours(next.getHours() + 1)
+  }
+  return next
 }
 
 function formatReadableDateTime(value: string) {
