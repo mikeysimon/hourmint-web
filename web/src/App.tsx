@@ -133,6 +133,7 @@ function App() {
   const [timeView, setTimeView] = useState<TimeView>('list')
   const [timeEntryModalOpen, setTimeEntryModalOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()))
+  const [calendarDayModalDate, setCalendarDayModalDate] = useState<Date | null>(null)
   const [invoiceClientId, setInvoiceClientId] = useState<string>('')
   const [invoiceDetailLevel, setInvoiceDetailLevel] = useState<DetailLevel>('project')
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
@@ -297,6 +298,13 @@ function App() {
     }
     return days
   }, [calendarMonth])
+
+  const calendarDayModalEntries = useMemo(() => {
+    if (!calendarDayModalDate) return []
+    return calendarEntries
+      .filter((entry) => isSameDay(new Date(entry.start_at), calendarDayModalDate))
+      .sort((left, right) => left.start_at.localeCompare(right.start_at))
+  }, [calendarDayModalDate, calendarEntries])
 
   const logoUrl = useMemo(() => {
     if (!settingsForm.company_logo_path) return ''
@@ -518,7 +526,12 @@ function App() {
     setTimeEntryModalOpen(true)
   }
 
+  function openCalendarDay(day: Date) {
+    setCalendarDayModalDate(day)
+  }
+
   function openEditTimeEntry(entry: TimeEntryRecord) {
+    setCalendarDayModalDate(null)
     setTimeEntryForm({
       id: entry.id,
       project_id: String(entry.project_id),
@@ -825,7 +838,13 @@ function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand-card">
-          <BrandMark className="brand-mark" />
+          {logoUrl ? (
+            <div className="brand-card__logo-wrap">
+              <img className="brand-card__logo" src={logoUrl} alt={`${settingsForm.business_name || 'HourMint'} logo`} />
+            </div>
+          ) : (
+            <BrandMark className="brand-mark" />
+          )}
           <div>
             <p className="eyebrow">HourMint</p>
             <h1>{settingsForm.business_name || 'HourMint'}</h1>
@@ -879,7 +898,7 @@ function App() {
               </div>
               <div className="hero-card__brand">
                 <span className="hero-card__brand-label">Brand system</span>
-                <BrandLockup name={settingsForm.business_name || 'HourMint'} />
+                <BrandLockup name={settingsForm.business_name || 'HourMint'} logoUrl={logoUrl} />
               </div>
             </div>
 
@@ -1266,10 +1285,11 @@ function App() {
                     return (
                       <div className={`calendar-day ${isSameMonth(day, calendarMonth) ? '' : 'calendar-day--muted'}`} key={day.toISOString()}>
                         <div className="calendar-day__header">
-                          <button className="calendar-day__date" type="button" onClick={() => openNewTimeEntry(day)}>
+                          <button className="calendar-day__date" type="button" onClick={() => openCalendarDay(day)} aria-label={`View entries for ${format(day, 'MMMM d')}`}>
                             {format(day, 'd')}
                           </button>
                           {dayHours ? <span className="badge badge--money">{formatHours(dayHours)}</span> : null}
+                          {dayEntries.length ? <span className="calendar-day__count">{dayEntries.length}</span> : null}
                         </div>
                         <div className="calendar-day__entries">
                           {dayEntries.slice(0, 3).map((entry) => (
@@ -1286,6 +1306,10 @@ function App() {
                           ))}
                           {dayEntries.length > 3 ? <small className="calendar-day__more">+{dayEntries.length - 3} more</small> : null}
                         </div>
+                        <button className="calendar-day__add" type="button" onClick={() => openNewTimeEntry(day)}>
+                          <Plus size={14} />
+                          <span>New entry</span>
+                        </button>
                       </div>
                     )
                   })}
@@ -1574,6 +1598,48 @@ function App() {
             </div>
           </div>
         ) : null}
+
+        {calendarDayModalDate ? (
+          <div className="modal-backdrop" role="presentation" onClick={() => setCalendarDayModalDate(null)}>
+            <div className="modal-card calendar-day-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-day-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="panel__header">
+                <div>
+                  <span className="eyebrow">Calendar day</span>
+                  <h3 id="calendar-day-modal-title">{format(calendarDayModalDate, 'EEEE, MMMM d')}</h3>
+                </div>
+                <button className="button button--ghost button--icon" type="button" onClick={() => setCalendarDayModalDate(null)} aria-label="Close day details">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="calendar-day-modal__summary">
+                <span>{calendarDayModalEntries.length} {calendarDayModalEntries.length === 1 ? 'entry' : 'entries'}</span>
+                <strong>{formatHours(calendarDayModalEntries.reduce((total, entry) => total + entry.hours, 0))}</strong>
+              </div>
+              <div className="calendar-day-modal__entries">
+                {calendarDayModalEntries.length ? calendarDayModalEntries.map((entry) => (
+                  <button
+                    className={`calendar-day-modal__entry ${entry.invoiced ? 'calendar-day-modal__entry--locked' : ''}`}
+                    disabled={entry.invoiced}
+                    key={entry.id}
+                    type="button"
+                    onClick={() => openEditTimeEntry(entry)}
+                  >
+                    <div>
+                      <strong>{projectsById.get(entry.project_id)?.name ?? 'Unknown project'}</strong>
+                      <span>{formatReadableDateTime(entry.start_at)} to {format(new Date(entry.end_at), 'h:mm a')}</span>
+                      <small>{entry.description}</small>
+                    </div>
+                    <b>{formatHours(entry.hours)}</b>
+                  </button>
+                )) : <p className="empty-state">No entries on this day yet.</p>}
+              </div>
+              <button className="button button--primary" type="button" onClick={() => { setCalendarDayModalDate(null); openNewTimeEntry(calendarDayModalDate) }}>
+                <Plus size={16} />
+                <span>New entry</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   )
@@ -1629,7 +1695,7 @@ function BrandMark({ className = '' }: { className?: string }) {
   )
 }
 
-function BrandLockup({ name }: { name: string }) {
+function BrandLockup({ name, logoUrl }: { name: string; logoUrl: string }) {
   const lines = name
     .split(/\s+/)
     .filter(Boolean)
@@ -1650,7 +1716,7 @@ function BrandLockup({ name }: { name: string }) {
   return (
     <div className="brand-lockup">
       <div className="brand-lockup__mark-wrap">
-        <BrandMark className="brand-lockup__mark" />
+        {logoUrl ? <img className="brand-lockup__logo" src={logoUrl} alt={`${name} logo`} /> : <BrandMark className="brand-lockup__mark" />}
       </div>
       <div className="brand-lockup__copy">
         <span className="brand-lockup__eyebrow">HourMint workspace</span>
