@@ -1615,10 +1615,27 @@ function App() {
                   />
                 </label>
                 <div className="button-row button-row--time">
-                  <button className="button button--primary" type="submit">
-                    <Save size={16} />
-                    <span>{timeEntryForm.id ? 'Update time' : 'Save time'}</span>
-                  </button>
+                  <div className="button-row__primary-actions">
+                    <button className="button button--primary" type="submit">
+                      <Save size={16} />
+                      <span>{timeEntryForm.id ? 'Update time' : 'Save time'}</span>
+                    </button>
+                    {timeEntryForm.id ? (
+                      <button
+                        className="button button--danger button--icon"
+                        type="button"
+                        onClick={() => {
+                          const entryId = timeEntryForm.id
+                          if (!entryId) return
+                          closeTimeEntryModal()
+                          void deleteRow('time_entries', entryId)
+                        }}
+                        aria-label="Delete time entry"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : null}
+                  </div>
                   <button className="button button--ghost" type="button" onClick={closeTimeEntryModal}>
                     Cancel
                   </button>
@@ -1660,16 +1677,6 @@ function App() {
                       </div>
                       <b>{formatHours(entry.hours)}</b>
                     </button>
-                    {!entry.invoiced ? (
-                      <button
-                        className="button button--danger button--icon calendar-day-modal__delete"
-                        type="button"
-                        onClick={() => void deleteRow('time_entries', entry.id)}
-                        aria-label={`Delete ${projectsById.get(entry.project_id)?.name ?? 'time entry'}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    ) : null}
                   </article>
                 )) : <p className="empty-state">No entries on this day yet.</p>}
               </div>

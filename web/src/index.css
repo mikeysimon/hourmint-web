@@ -374,6 +374,12 @@ a {
   flex-wrap: wrap;
 }
 
+.button-row__primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .time-toolbar,
 .time-toolbar__group,
 .view-toggle,
@@ -775,9 +781,7 @@ a {
 }
 
 .calendar-day-modal__entry-wrap {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
+  display: block;
 }
 
 .calendar-day-modal__entry {
@@ -818,11 +822,6 @@ a {
   background: rgba(98, 119, 132, 0.08);
 }
 
-.calendar-day-modal__delete {
-  align-self: stretch;
-  min-width: 44px;
-  padding-inline: 0;
-}
 
 .modal-backdrop {
   position: fixed;
