@@ -480,6 +480,22 @@ function App() {
       return
     }
 
+    const description = timeEntryForm.description.trim()
+    const duplicate = data.timeEntries.find((entry) => {
+      if (timeEntryForm.id && entry.id === timeEntryForm.id) return false
+      return (
+        entry.project_id === Number(timeEntryForm.project_id) &&
+        new Date(entry.start_at).valueOf() === startAt.valueOf() &&
+        new Date(entry.end_at).valueOf() === endAt.valueOf() &&
+        entry.description.trim().toLocaleLowerCase() === description.toLocaleLowerCase()
+      )
+    })
+
+    if (duplicate) {
+      setStatusMessage('That exact time entry already exists. Edit the existing entry instead.')
+      return
+    }
+
     const overlap = data.timeEntries.find((entry) => {
       if (timeEntryForm.id && entry.id === timeEntryForm.id) return false
       return new Date(entry.start_at) < endAt && new Date(entry.end_at) > startAt
@@ -500,7 +516,7 @@ function App() {
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         hours,
-        description: timeEntryForm.description.trim(),
+        description,
       }
 
       const query = timeEntryForm.id
@@ -1630,20 +1646,31 @@ function App() {
               </div>
               <div className="calendar-day-modal__entries">
                 {calendarDayModalEntries.length ? calendarDayModalEntries.map((entry) => (
-                  <button
-                    className={`calendar-day-modal__entry ${entry.invoiced ? 'calendar-day-modal__entry--locked' : ''}`}
-                    disabled={entry.invoiced}
-                    key={entry.id}
-                    type="button"
-                    onClick={() => openEditTimeEntry(entry)}
-                  >
-                    <div>
-                      <strong>{projectsById.get(entry.project_id)?.name ?? 'Unknown project'}</strong>
-                      <span>{formatReadableDateTime(entry.start_at)} to {format(new Date(entry.end_at), 'h:mm a')}</span>
-                      <small>{entry.description}</small>
-                    </div>
-                    <b>{formatHours(entry.hours)}</b>
-                  </button>
+                  <article className="calendar-day-modal__entry-wrap" key={entry.id}>
+                    <button
+                      className={`calendar-day-modal__entry ${entry.invoiced ? 'calendar-day-modal__entry--locked' : ''}`}
+                      disabled={entry.invoiced}
+                      type="button"
+                      onClick={() => openEditTimeEntry(entry)}
+                    >
+                      <div>
+                        <strong>{projectsById.get(entry.project_id)?.name ?? 'Unknown project'}</strong>
+                        <span>{formatReadableDateTime(entry.start_at)} to {format(new Date(entry.end_at), 'h:mm a')}</span>
+                        <small>{entry.description}</small>
+                      </div>
+                      <b>{formatHours(entry.hours)}</b>
+                    </button>
+                    {!entry.invoiced ? (
+                      <button
+                        className="button button--danger button--icon calendar-day-modal__delete"
+                        type="button"
+                        onClick={() => void deleteRow('time_entries', entry.id)}
+                        aria-label={`Delete ${projectsById.get(entry.project_id)?.name ?? 'time entry'}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : null}
+                  </article>
                 )) : <p className="empty-state">No entries on this day yet.</p>}
               </div>
               <button className="button button--primary" type="button" onClick={() => { setCalendarDayModalDate(null); openNewTimeEntry(calendarDayModalDate) }}>

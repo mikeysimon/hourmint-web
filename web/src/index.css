@@ -774,8 +774,15 @@ a {
   margin-bottom: 18px;
 }
 
+.calendar-day-modal__entry-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .calendar-day-modal__entry {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -809,6 +816,12 @@ a {
 .calendar-day-modal__entry--locked {
   cursor: default;
   background: rgba(98, 119, 132, 0.08);
+}
+
+.calendar-day-modal__delete {
+  align-self: stretch;
+  min-width: 44px;
+  padding-inline: 0;
 }
 
 .modal-backdrop {
