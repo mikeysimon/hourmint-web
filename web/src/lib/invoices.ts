@@ -2,6 +2,11 @@ import { jsPDF } from 'jspdf'
 
 import type { ClientRecord, DetailLevel, ProjectRecord, TimeEntryRecord } from './types'
 
+export type InvoiceCustomLineItem = {
+  description: string
+  amount: number
+}
+
 type InvoiceBundleInput = {
   invoiceNumber: string
   client: ClientRecord
@@ -10,6 +15,7 @@ type InvoiceBundleInput = {
   detailLevel: DetailLevel
   logoUrl: string
   projectsById: Map<number, ProjectRecord>
+  customLineItems: InvoiceCustomLineItem[]
 }
 
 type EnrichedEntry = TimeEntryRecord & {
@@ -65,14 +71,16 @@ function createSingleInvoicePdf(
     }
   })
 
-  const subtotal = roundCurrency(entries.reduce((sum, entry) => sum + entry.hours * entry.rate, 0))
+  const timeSubtotal = entries.reduce((sum, entry) => sum + entry.hours * entry.rate, 0)
+  const customSubtotal = input.customLineItems.reduce((sum, item) => sum + item.amount, 0)
+  const subtotal = roundCurrency(timeSubtotal + customSubtotal)
 
   let y = height - margin
   y = drawHeader(context, input.invoiceNumber, input.client.name, input.businessName, input.variant, input.logoDataUrl, y)
   y -= 14
-  y = drawSummary(context, entries, subtotal, input.variant, y)
+  y = drawSummary(context, entries, input.customLineItems, subtotal, input.variant, y)
   y -= 18
-  y = drawItems(context, input.variant, entries, y)
+  y = drawItems(context, input.variant, entries, input.customLineItems, y)
 
   if (y < margin + 70) {
     finishPage(context)
@@ -151,14 +159,21 @@ function drawHeader(
   return headerBottom - 24
 }
 
-function drawSummary(context: PdfContext, entries: EnrichedEntry[], subtotal: number, detailLevel: DetailLevel, y: number) {
+function drawSummary(
+  context: PdfContext,
+  entries: EnrichedEntry[],
+  customLineItems: InvoiceCustomLineItem[],
+  subtotal: number,
+  detailLevel: DetailLevel,
+  y: number,
+) {
   const { doc, margin, contentWidth } = context
   const totalHours = entries.reduce((sum, entry) => sum + entry.hours, 0)
   const projects = new Set(entries.map((entry) => entry.project_name)).size
   const summary = [
     ['Detail Level', detailLabel(detailLevel)],
     ['Projects', String(projects)],
-    ['Time Entries', String(entries.length)],
+    ['Line Items', String(entries.length + customLineItems.length)],
     ['Hours', formatHours(totalHours)],
     ['Subtotal', currency(subtotal)],
   ] as const
@@ -192,7 +207,13 @@ function drawSummary(context: PdfContext, entries: EnrichedEntry[], subtotal: nu
   return boxY
 }
 
-function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: EnrichedEntry[], y: number) {
+function drawItems(
+  context: PdfContext,
+  detailLevel: DetailLevel,
+  entries: EnrichedEntry[],
+  customLineItems: InvoiceCustomLineItem[],
+  y: number,
+) {
   const { doc, width, margin, contentWidth } = context
   const grouped = new Map<string, EnrichedEntry[]>()
   for (const entry of entries) {
@@ -201,9 +222,11 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
     grouped.set(entry.project_name, current)
   }
 
-  setFont(doc, 'bold', 16, '#173042')
-  drawText(context, 'Work Summary', margin, y)
-  y -= 12
+  if (entries.length) {
+    setFont(doc, 'bold', 16, '#173042')
+    drawText(context, 'Work Summary', margin, y)
+    y -= 12
+  }
 
   for (const [projectName, projectEntries] of grouped.entries()) {
     const projectHours = projectEntries.reduce((sum, item) => sum + item.hours, 0)
@@ -270,6 +293,30 @@ function drawItems(context: PdfContext, detailLevel: DetailLevel, entries: Enric
       })
       drawSeparator(context, margin, width, y - 1)
       y -= 12
+    }
+  }
+
+  if (customLineItems.length) {
+    y = ensureSpace(context, y, 42)
+    setFont(doc, 'bold', 16, '#173042')
+    drawText(context, 'Additional Charges & Credits', margin, y)
+    y -= 18
+
+    for (const item of customLineItems) {
+      const amountText = currency(item.amount)
+      const amountWidth = doc.getTextWidth(amountText)
+      const descriptionWidth = Math.max(200, contentWidth - amountWidth - 46)
+      const descriptionLines = wrapText(doc, item.description, 'helvetica', 'normal', 10, descriptionWidth)
+      const itemHeight = Math.max(31, descriptionLines.length * 12 + 17)
+      y = ensureSpace(context, y, itemHeight + 5)
+
+      setFont(doc, 'normal', 10, '#4A5E73')
+      descriptionLines.forEach((line, index) => drawText(context, line, margin + 14, y - index * 12))
+      setFont(doc, 'bold', 10.5, item.amount < 0 ? '#B42318' : '#173042')
+      drawText(context, amountText, width - margin - 14, y, { align: 'right' })
+      y -= itemHeight
+      drawSeparator(context, margin, width, y + 4)
+      y -= 10
     }
   }
 

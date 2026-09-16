@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
 import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LoaderCircle, LogOut, Plus, Receipt, Save, Settings, Timer, Users, BriefcaseBusiness, Upload, Trash2, PencilLine, ShieldCheck, Smartphone, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 
 import { createInvoicePdfBundle } from './lib/invoices'
 import { supabase, supabaseUrlMissing } from './lib/supabase'
-import type { ClientRecord, DetailLevel, InvoiceRecord, ProjectRecord, SettingRecord, TimeEntryRecord } from './lib/types'
+import type { ClientRecord, DetailLevel, InvoiceLineItemRecord, InvoiceRecord, ProjectRecord, SettingRecord, TimeEntryRecord } from './lib/types'
 
 type SectionKey = 'dashboard' | 'clients' | 'projects' | 'time' | 'invoices' | 'settings'
 type AuthMode = 'sign-in' | 'sign-up'
@@ -16,7 +16,14 @@ type AppData = {
   projects: ProjectRecord[]
   timeEntries: TimeEntryRecord[]
   invoices: InvoiceRecord[]
+  invoiceLineItems: InvoiceLineItemRecord[]
   settings: SettingRecord[]
+}
+
+type InvoiceLineItemDraft = {
+  id: string
+  description: string
+  amount: string
 }
 
 type ClientFormState = {
@@ -78,6 +85,7 @@ const emptyData: AppData = {
   projects: [],
   timeEntries: [],
   invoices: [],
+  invoiceLineItems: [],
   settings: [],
 }
 
@@ -111,6 +119,12 @@ const emptyTimeEntryFilters: TimeEntryFilterState = {
   date: '',
 }
 
+const emptyInvoiceLineItem = (): InvoiceLineItemDraft => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  description: '',
+  amount: '',
+})
+
 const getSetting = (settings: SettingRecord[], key: string, fallback = '') =>
   settings.find((setting) => setting.key === key)?.value ?? fallback
 
@@ -137,6 +151,8 @@ function App() {
   const [invoiceClientId, setInvoiceClientId] = useState<string>('')
   const [invoiceDetailLevel, setInvoiceDetailLevel] = useState<DetailLevel>('project')
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
+  const [invoiceLineItemDrafts, setInvoiceLineItemDrafts] = useState<InvoiceLineItemDraft[]>([])
+  const invoiceSelectionInitializedFor = useRef<string | null>(null)
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     business_name: 'HourMint',
     invoice_prefix: 'HM',
@@ -326,14 +342,15 @@ function App() {
   }, [data.clients, invoiceClientId])
 
   useEffect(() => {
-    if (!selectedEntryIds.length && invoiceEntries.length) {
-      setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))
-    } else {
-      setSelectedEntryIds((current) =>
-        current.filter((entryId) => invoiceEntries.some((entry) => entry.id === entryId)),
-      )
-    }
-  }, [invoiceEntries, selectedEntryIds.length])
+    setSelectedEntryIds((current) => {
+      if (invoiceSelectionInitializedFor.current !== invoiceClientId) {
+        invoiceSelectionInitializedFor.current = invoiceClientId
+        return invoiceEntries.map((entry) => entry.id)
+      }
+
+      return current.filter((entryId) => invoiceEntries.some((entry) => entry.id === entryId))
+    })
+  }, [invoiceEntries, invoiceClientId])
 
   useEffect(() => {
     if (timeEntryFilters.date) {
@@ -345,11 +362,12 @@ function App() {
     setLoadingApp(true)
     setStatusMessage('Loading your web workspace...')
 
-    const [clientsRes, projectsRes, timeEntriesRes, invoicesRes, settingsRes] = await Promise.all([
+    const [clientsRes, projectsRes, timeEntriesRes, invoicesRes, invoiceLineItemsRes, settingsRes] = await Promise.all([
       supabase.from('clients').select('*').order('name'),
       supabase.from('projects').select('*').order('name'),
       supabase.from('time_entries').select('*').order('start_at', { ascending: false }),
       supabase.from('invoices').select('*').order('generated_at', { ascending: false }),
+      supabase.from('invoice_line_items').select('*').order('sort_order'),
       supabase.from('settings').select('*').order('key'),
     ])
 
@@ -358,6 +376,7 @@ function App() {
       projectsRes.error ||
       timeEntriesRes.error ||
       invoicesRes.error ||
+      invoiceLineItemsRes.error ||
       settingsRes.error
 
     if (firstError) {
@@ -371,6 +390,7 @@ function App() {
       projects: projectsRes.data ?? [],
       timeEntries: timeEntriesRes.data ?? [],
       invoices: invoicesRes.data ?? [],
+      invoiceLineItems: invoiceLineItemsRes.data ?? [],
       settings: settingsRes.data ?? [],
     }
 
@@ -660,22 +680,41 @@ function App() {
   }
 
   async function generateInvoice() {
-    if (!invoiceClientId || !selectedEntryIds.length) {
-      setStatusMessage('Choose a client and at least one uninvoiced time entry.')
+    if (!invoiceClientId) {
+      setStatusMessage('Choose a client before generating an invoice.')
       return
     }
+
+    const hasInvalidLineItem = invoiceLineItemDrafts.some((item) => {
+      const hasDescription = Boolean(item.description.trim())
+      const hasAmount = Boolean(item.amount.trim())
+      return hasDescription !== hasAmount || (hasAmount && !Number.isFinite(Number(item.amount)))
+    })
+
+    if (hasInvalidLineItem) {
+      setStatusMessage('Give every additional item both a description and a valid amount.')
+      return
+    }
+
+    const customLineItems = invoiceLineItemDrafts
+      .filter((item) => item.description.trim() && item.amount.trim())
+      .map((item) => ({ description: item.description.trim(), amount: Number(item.amount) }))
 
     const client = clientsById.get(Number(invoiceClientId))
     if (!client) return
 
     const selectedEntries = invoiceEntries.filter((entry) => selectedEntryIds.includes(entry.id))
-    if (!selectedEntries.length) return
+    if (!selectedEntries.length && !customLineItems.length) {
+      setStatusMessage('Choose time entries or add an additional charge or credit.')
+      return
+    }
 
     const invoiceNumber = `${settingsForm.invoice_prefix || 'HM'}-${format(new Date(), 'yyyyMMdd')}-${String(data.invoices.length + 1).padStart(3, '0')}`
-    const subtotal = selectedEntries.reduce((sum, entry) => {
+    const timeSubtotal = selectedEntries.reduce((sum, entry) => {
       const project = projectsById.get(entry.project_id)
       return sum + entry.hours * Number(project?.rate ?? 0)
     }, 0)
+    const subtotal = timeSubtotal + customLineItems.reduce((sum, item) => sum + item.amount, 0)
 
     await withSaving(async () => {
       const bundle = await createInvoicePdfBundle({
@@ -686,6 +725,7 @@ function App() {
         detailLevel: invoiceDetailLevel,
         logoUrl,
         projectsById,
+        customLineItems,
       })
 
       const uploads = await Promise.all(
@@ -724,6 +764,18 @@ function App() {
 
       if (invoiceError) throw invoiceError
 
+      if (customLineItems.length) {
+        const { error: lineItemsError } = await supabase.from('invoice_line_items').insert(
+          customLineItems.map((item, index) => ({
+            invoice_id: createdInvoice.id,
+            description: item.description,
+            amount: Number(item.amount.toFixed(2)),
+            sort_order: index,
+          })),
+        )
+        if (lineItemsError) throw lineItemsError
+      }
+
       const { error: updateError } = await supabase
         .from('time_entries')
         .update({ invoiced: true, invoice_id: createdInvoice.id })
@@ -732,6 +784,7 @@ function App() {
       if (updateError) throw updateError
 
       setSelectedEntryIds([])
+      setInvoiceLineItemDrafts([])
       setStatusMessage(`Invoice ${invoiceNumber} generated.`)
       await loadAppData()
     })
@@ -1381,6 +1434,66 @@ function App() {
                     ))}
                   </select>
                 </label>
+              </div>
+
+              <div className="invoice-line-items">
+                <div className="invoice-line-items__header">
+                  <div>
+                    <h4>Additional charges & credits</h4>
+                    <p>Use a positive amount for a charge or a negative amount for a credit.</p>
+                  </div>
+                  <button
+                    className="button button--ghost"
+                    type="button"
+                    onClick={() => setInvoiceLineItemDrafts((current) => [...current, emptyInvoiceLineItem()])}
+                  >
+                    <Plus size={16} />
+                    <span>Add line item</span>
+                  </button>
+                </div>
+
+                {invoiceLineItemDrafts.map((item) => (
+                  <div className="invoice-line-item" key={item.id}>
+                    <label className="field">
+                      <span>Description</span>
+                      <input
+                        value={item.description}
+                        onChange={(event) =>
+                          setInvoiceLineItemDrafts((current) =>
+                            current.map((currentItem) =>
+                              currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem,
+                            ),
+                          )
+                        }
+                        placeholder="e.g. Rush delivery fee or courtesy credit"
+                      />
+                    </label>
+                    <label className="field invoice-line-item__amount">
+                      <span>Amount</span>
+                      <input
+                        value={item.amount}
+                        onChange={(event) =>
+                          setInvoiceLineItemDrafts((current) =>
+                            current.map((currentItem) =>
+                              currentItem.id === item.id ? { ...currentItem, amount: event.target.value } : currentItem,
+                            ),
+                          )
+                        }
+                        placeholder="-50.00"
+                        step="0.01"
+                        type="number"
+                      />
+                    </label>
+                    <button
+                      aria-label={`Remove ${item.description || 'additional'} line item`}
+                      className="button button--danger invoice-line-item__remove"
+                      type="button"
+                      onClick={() => setInvoiceLineItemDrafts((current) => current.filter((currentItem) => currentItem.id !== item.id))}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
 
               <div className="selection-toolbar selection-toolbar--invoice">

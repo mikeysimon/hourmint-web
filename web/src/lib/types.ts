@@ -46,6 +46,15 @@ export type InvoiceRecord = {
   paid_at: string | null
 }
 
+export type InvoiceLineItemRecord = {
+  id: number
+  invoice_id: number
+  description: string
+  amount: number
+  sort_order: number
+  created_at: string
+}
+
 export type SettingRecord = {
   key: string
   value: string
