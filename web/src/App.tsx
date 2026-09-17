@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js'
 
 import { createInvoicePdfBundle } from './lib/invoices'
 import { supabase, supabaseUrlMissing } from './lib/supabase'
-import type { ClientRecord, DetailLevel, InvoiceLineItemRecord, InvoiceRecord, ProjectRecord, SettingRecord, TimeEntryRecord } from './lib/types'
+import type { ClientRecord, DetailLevel, InvoiceRecord, ProjectRecord, SettingRecord, TimeEntryRecord } from './lib/types'
 
 type SectionKey = 'dashboard' | 'clients' | 'projects' | 'time' | 'invoices' | 'settings'
 type AuthMode = 'sign-in' | 'sign-up'
@@ -16,7 +16,6 @@ type AppData = {
   projects: ProjectRecord[]
   timeEntries: TimeEntryRecord[]
   invoices: InvoiceRecord[]
-  invoiceLineItems: InvoiceLineItemRecord[]
   settings: SettingRecord[]
 }
 
@@ -85,7 +84,6 @@ const emptyData: AppData = {
   projects: [],
   timeEntries: [],
   invoices: [],
-  invoiceLineItems: [],
   settings: [],
 }
 
@@ -362,12 +360,11 @@ function App() {
     setLoadingApp(true)
     setStatusMessage('Loading your web workspace...')
 
-    const [clientsRes, projectsRes, timeEntriesRes, invoicesRes, invoiceLineItemsRes, settingsRes] = await Promise.all([
+    const [clientsRes, projectsRes, timeEntriesRes, invoicesRes, settingsRes] = await Promise.all([
       supabase.from('clients').select('*').order('name'),
       supabase.from('projects').select('*').order('name'),
       supabase.from('time_entries').select('*').order('start_at', { ascending: false }),
       supabase.from('invoices').select('*').order('generated_at', { ascending: false }),
-      supabase.from('invoice_line_items').select('*').order('sort_order'),
       supabase.from('settings').select('*').order('key'),
     ])
 
@@ -376,7 +373,6 @@ function App() {
       projectsRes.error ||
       timeEntriesRes.error ||
       invoicesRes.error ||
-      invoiceLineItemsRes.error ||
       settingsRes.error
 
     if (firstError) {
@@ -390,7 +386,6 @@ function App() {
       projects: projectsRes.data ?? [],
       timeEntries: timeEntriesRes.data ?? [],
       invoices: invoicesRes.data ?? [],
-      invoiceLineItems: invoiceLineItemsRes.data ?? [],
       settings: settingsRes.data ?? [],
     }
 
