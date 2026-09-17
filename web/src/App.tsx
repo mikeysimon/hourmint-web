@@ -163,6 +163,7 @@ function App() {
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
   const [invoiceLineItemDrafts, setInvoiceLineItemDrafts] = useState<InvoiceLineItemDraft[]>([])
   const [invoiceLineItemForm, setInvoiceLineItemForm] = useState<InvoiceLineItemFormState>(emptyInvoiceLineItem())
+  const [invoiceEntriesModalOpen, setInvoiceEntriesModalOpen] = useState(false)
   const invoiceSelectionInitializedFor = useRef<string | null>(null)
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     business_name: 'HourMint',
@@ -279,6 +280,24 @@ function App() {
       .filter((entry) => !entry.invoiced && clientProjects.includes(entry.project_id))
       .sort((left, right) => left.start_at.localeCompare(right.start_at))
   }, [data.projects, data.timeEntries, invoiceClientId])
+
+  const invoiceSelection = useMemo(() => {
+    const selectedTimeEntries = invoiceEntries.filter((entry) => selectedEntryIds.includes(entry.id))
+    const selectedAdjustments = invoiceLineItemDrafts.filter((item) => item.selected)
+    const timeTotal = selectedTimeEntries.reduce((sum, entry) => {
+      const project = projectsById.get(entry.project_id)
+      return sum + entry.hours * Number(project?.rate ?? 0)
+    }, 0)
+    const adjustmentTotal = selectedAdjustments.reduce((sum, item) => sum + item.amount, 0)
+
+    return {
+      pendingCount: invoiceEntries.length + invoiceLineItemDrafts.length,
+      selectedCount: selectedTimeEntries.length + selectedAdjustments.length,
+      selectedHours: selectedTimeEntries.reduce((sum, entry) => sum + entry.hours, 0),
+      selectedTotal: timeTotal + adjustmentTotal,
+      adjustmentCount: invoiceLineItemDrafts.length,
+    }
+  }, [invoiceEntries, invoiceLineItemDrafts, projectsById, selectedEntryIds])
 
   const filteredTimeEntries = useMemo(() => {
     return data.timeEntries.filter((entry) => {
@@ -799,6 +818,16 @@ function App() {
 
     setInvoiceLineItemDrafts((current) => [...current, createInvoiceLineItem(description, amount)])
     setInvoiceLineItemForm(emptyInvoiceLineItem())
+  }
+
+  function selectAllInvoiceItems() {
+    setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))
+    setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: true })))
+  }
+
+  function clearInvoiceItems() {
+    setSelectedEntryIds([])
+    setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: false })))
   }
 
   async function downloadInvoice(invoice: InvoiceRecord, detailLevel: DetailLevel) {
@@ -1447,124 +1476,31 @@ function App() {
                 </label>
               </div>
 
-              <div className="invoice-line-items">
-                <div className="invoice-line-items__header">
+              <div className="invoice-selection-summary">
+                <div className="invoice-selection-summary__header">
                   <div>
-                    <h4>Additional charges & credits</h4>
-                    <p>Add an item to the invoice list, then check or uncheck it just like a time entry.</p>
+                    <h4>Pending invoice items</h4>
+                    <p>Review time entries and add charges or credits before generating the invoice.</p>
                   </div>
-                </div>
-
-                <div className="invoice-line-item">
-                  <label className="field">
-                    <span>Description</span>
-                    <input
-                      value={invoiceLineItemForm.description}
-                      onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, description: event.target.value }))}
-                      placeholder="e.g. Rush delivery fee or courtesy credit"
-                    />
-                  </label>
-                  <label className="field invoice-line-item__amount">
-                    <span>Amount</span>
-                    <input
-                      value={invoiceLineItemForm.amount}
-                      onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, amount: event.target.value }))}
-                      placeholder="-50.00"
-                      step="0.01"
-                      type="number"
-                    />
-                  </label>
-                  <button className="button button--primary invoice-line-item__add" type="button" onClick={addInvoiceLineItem}>
-                    <Plus size={16} />
-                    <span>Add to invoice</span>
+                  <button className="button button--ghost" type="button" onClick={() => setInvoiceEntriesModalOpen(true)}>
+                    <ClipboardList size={16} />
+                    <span>View entries</span>
                   </button>
                 </div>
+                <div className="invoice-selection-summary__stats">
+                  <div><span>Pending</span><strong>{invoiceSelection.pendingCount}</strong></div>
+                  <div><span>Selected</span><strong>{invoiceSelection.selectedCount}</strong></div>
+                  <div><span>Selected hours</span><strong>{formatHours(invoiceSelection.selectedHours)}</strong></div>
+                  <div><span>Invoice total</span><strong>{formatCurrency(invoiceSelection.selectedTotal)}</strong></div>
+                </div>
+                {invoiceSelection.adjustmentCount ? <small>{invoiceSelection.adjustmentCount} charge or credit item{invoiceSelection.adjustmentCount === 1 ? '' : 's'} ready to review.</small> : null}
               </div>
 
-              <div className="selection-toolbar selection-toolbar--invoice">
-                <div className="selection-toolbar__group">
-                  <button
-                    className="button button--ghost"
-                    type="button"
-                    onClick={() => {
-                      setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))
-                      setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: true })))
-                    }}
-                  >
-                    Select all
-                  </button>
-                  <button
-                    className="button button--ghost"
-                    type="button"
-                    onClick={() => {
-                      setSelectedEntryIds([])
-                      setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: false })))
-                    }}
-                  >
-                    Clear
-                  </button>
-                </div>
+              <div className="invoice-generate-actions">
                 <button className="button button--primary" type="button" onClick={() => void generateInvoice()}>
                   <FileText size={16} />
                   <span>Generate invoice PDFs</span>
                 </button>
-              </div>
-
-              <div className="selection-list">
-                {invoiceLineItemDrafts.map((item) => (
-                  <div className={`selection-card selection-card--adjustment ${item.selected ? 'selection-card--active' : ''}`} key={item.id}>
-                    <input
-                      aria-label={`Include ${item.description}`}
-                      checked={item.selected}
-                      onChange={(event) =>
-                        setInvoiceLineItemDrafts((current) =>
-                          current.map((currentItem) =>
-                            currentItem.id === item.id ? { ...currentItem, selected: event.target.checked } : currentItem,
-                          ),
-                        )
-                      }
-                      type="checkbox"
-                    />
-                    <div>
-                      <strong>{item.amount < 0 ? 'Credit' : 'Additional charge'}</strong>
-                      <p>{item.description}</p>
-                      <small>{formatCurrency(item.amount)}</small>
-                    </div>
-                    <button
-                      aria-label={`Remove ${item.description}`}
-                      className="button button--danger selection-card__remove"
-                      type="button"
-                      onClick={() => setInvoiceLineItemDrafts((current) => current.filter((currentItem) => currentItem.id !== item.id))}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-                {invoiceEntries.map((entry) => {
-                  const checked = selectedEntryIds.includes(entry.id)
-                  const project = projectsById.get(entry.project_id)
-                  return (
-                    <label className={`selection-card ${checked ? 'selection-card--active' : ''}`} key={entry.id}>
-                      <input
-                        checked={checked}
-                        onChange={(event) =>
-                          setSelectedEntryIds((current) =>
-                            event.target.checked ? [...current, entry.id] : current.filter((id) => id !== entry.id),
-                          )
-                        }
-                        type="checkbox"
-                      />
-                      <div>
-                        <strong>{project?.name ?? 'Unknown project'}</strong>
-                        <p>{entry.description}</p>
-                        <small>
-                          {formatReadableDateTime(entry.start_at)} • {formatHours(entry.hours)} hrs
-                        </small>
-                      </div>
-                    </label>
-                  )
-                })}
-                {!invoiceEntries.length && !invoiceLineItemDrafts.length ? <p className="empty-state">No uninvoiced time entries or additional items are waiting for this client.</p> : null}
               </div>
             </div>
 
@@ -1825,6 +1761,74 @@ function App() {
                 <Plus size={16} />
                 <span>New entry</span>
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {invoiceEntriesModalOpen ? (
+          <div className="modal-backdrop" role="presentation" onClick={() => setInvoiceEntriesModalOpen(false)}>
+            <div className="modal-card invoice-entries-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-entries-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="panel__header">
+                <div>
+                  <span className="eyebrow">Invoice selection</span>
+                  <h3 id="invoice-entries-modal-title">Pending entries</h3>
+                </div>
+                <button className="button button--ghost button--icon" type="button" onClick={() => setInvoiceEntriesModalOpen(false)} aria-label="Close pending entries">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="invoice-line-items invoice-line-items--modal">
+                <div className="invoice-line-items__header">
+                  <div>
+                    <h4>Add charge or credit</h4>
+                    <p>Use a positive amount for a charge or a negative amount for a credit.</p>
+                  </div>
+                </div>
+                <div className="invoice-line-item">
+                  <label className="field">
+                    <span>Description</span>
+                    <input value={invoiceLineItemForm.description} onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, description: event.target.value }))} placeholder="e.g. Rush delivery fee or courtesy credit" />
+                  </label>
+                  <label className="field invoice-line-item__amount">
+                    <span>Amount</span>
+                    <input value={invoiceLineItemForm.amount} onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, amount: event.target.value }))} placeholder="-50.00" step="0.01" type="number" />
+                  </label>
+                  <button className="button button--primary invoice-line-item__add" type="button" onClick={addInvoiceLineItem}>
+                    <Plus size={16} />
+                    <span>Add item</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="selection-toolbar invoice-entries-modal__toolbar">
+                <span>{invoiceSelection.selectedCount} of {invoiceSelection.pendingCount} selected</span>
+                <div className="selection-toolbar__group">
+                  <button className="button button--ghost" type="button" onClick={selectAllInvoiceItems}>Select all</button>
+                  <button className="button button--ghost" type="button" onClick={clearInvoiceItems}>Clear</button>
+                </div>
+              </div>
+
+              <div className="selection-list invoice-entries-modal__list">
+                {invoiceLineItemDrafts.map((item) => (
+                  <div className={`selection-card selection-card--adjustment ${item.selected ? 'selection-card--active' : ''}`} key={item.id}>
+                    <input aria-label={`Include ${item.description}`} checked={item.selected} onChange={(event) => setInvoiceLineItemDrafts((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, selected: event.target.checked } : currentItem))} type="checkbox" />
+                    <div><strong>{item.amount < 0 ? 'Credit' : 'Additional charge'}</strong><p>{item.description}</p><small>{formatCurrency(item.amount)}</small></div>
+                    <button aria-label={`Remove ${item.description}`} className="button button--danger selection-card__remove" type="button" onClick={() => setInvoiceLineItemDrafts((current) => current.filter((currentItem) => currentItem.id !== item.id))}><Trash2 size={16} /></button>
+                  </div>
+                ))}
+                {invoiceEntries.map((entry) => {
+                  const checked = selectedEntryIds.includes(entry.id)
+                  const project = projectsById.get(entry.project_id)
+                  return (
+                    <label className={`selection-card ${checked ? 'selection-card--active' : ''}`} key={entry.id}>
+                      <input checked={checked} onChange={(event) => setSelectedEntryIds((current) => event.target.checked ? [...current, entry.id] : current.filter((id) => id !== entry.id))} type="checkbox" />
+                      <div><strong>{project?.name ?? 'Unknown project'}</strong><p>{entry.description}</p><small>{formatReadableDateTime(entry.start_at)} • {formatHours(entry.hours)} hrs</small></div>
+                    </label>
+                  )
+                })}
+                {!invoiceEntries.length && !invoiceLineItemDrafts.length ? <p className="empty-state">No uninvoiced time entries or additional items are waiting for this client.</p> : null}
+              </div>
             </div>
           </div>
         ) : null}

@@ -638,6 +638,101 @@ a {
   white-space: nowrap;
 }
 
+.invoice-selection-summary {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid rgba(14, 118, 112, 0.18);
+  border-radius: 20px;
+  background: rgba(232, 251, 243, 0.58);
+}
+
+.invoice-selection-summary__header,
+.invoice-generate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.invoice-selection-summary h4,
+.invoice-selection-summary p,
+.invoice-selection-summary small {
+  margin: 0;
+}
+
+.invoice-selection-summary p,
+.invoice-selection-summary small {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+}
+
+.invoice-selection-summary p {
+  margin-top: 5px;
+}
+
+.invoice-selection-summary__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(14, 118, 112, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.invoice-selection-summary__stats div {
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+}
+
+.invoice-selection-summary__stats div + div {
+  border-left: 1px solid rgba(14, 118, 112, 0.1);
+}
+
+.invoice-selection-summary__stats span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.invoice-selection-summary__stats strong {
+  font-size: 1.05rem;
+}
+
+.invoice-generate-actions {
+  justify-content: end;
+  margin-top: 18px;
+}
+
+.invoice-entries-modal {
+  width: min(880px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-line-items--modal {
+  margin-top: 0;
+}
+
+.invoice-entries-modal__toolbar {
+  margin-top: 18px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(28, 79, 69, 0.1);
+  border-bottom: 1px solid rgba(28, 79, 69, 0.1);
+  color: var(--text-soft);
+  font-size: 0.88rem;
+}
+
+.invoice-entries-modal__list {
+  min-height: 0;
+  max-height: 42vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .selection-card {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1296,6 +1391,34 @@ a {
 
   .selection-card--adjustment {
     grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .invoice-selection-summary__header,
+  .invoice-generate-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .invoice-selection-summary__header .button,
+  .invoice-generate-actions .button {
+    width: 100%;
+  }
+
+  .invoice-selection-summary__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invoice-selection-summary__stats div:nth-child(3) {
+    border-left: none;
+    border-top: 1px solid rgba(14, 118, 112, 0.1);
+  }
+
+  .invoice-selection-summary__stats div:nth-child(4) {
+    border-top: 1px solid rgba(14, 118, 112, 0.1);
+  }
+
+  .invoice-entries-modal__list {
+    max-height: 43vh;
   }
 
   .list-row__meta,
