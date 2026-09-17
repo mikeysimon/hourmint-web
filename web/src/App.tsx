@@ -164,7 +164,7 @@ function App() {
   const [invoiceLineItemDrafts, setInvoiceLineItemDrafts] = useState<InvoiceLineItemDraft[]>([])
   const [invoiceLineItemForm, setInvoiceLineItemForm] = useState<InvoiceLineItemFormState>(emptyInvoiceLineItem())
   const [invoiceEntriesModalOpen, setInvoiceEntriesModalOpen] = useState(false)
-  const invoiceSelectionInitializedFor = useRef<string | null>(null)
+  const seenInvoiceEntryIdsByClient = useRef(new Map<string, Set<number>>())
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     business_name: 'HourMint',
     invoice_prefix: 'HM',
@@ -372,14 +372,23 @@ function App() {
   }, [data.clients, invoiceClientId])
 
   useEffect(() => {
+    if (!invoiceClientId) return
+
+    const currentEntryIds = new Set(invoiceEntries.map((entry) => entry.id))
+    const seenEntryIds = seenInvoiceEntryIdsByClient.current.get(invoiceClientId)
+
     setSelectedEntryIds((current) => {
-      if (invoiceSelectionInitializedFor.current !== invoiceClientId) {
-        invoiceSelectionInitializedFor.current = invoiceClientId
+      if (!seenEntryIds) {
         return invoiceEntries.map((entry) => entry.id)
       }
 
-      return current.filter((entryId) => invoiceEntries.some((entry) => entry.id === entryId))
+      const newlyAvailableIds = invoiceEntries
+        .filter((entry) => !seenEntryIds.has(entry.id))
+        .map((entry) => entry.id)
+      return [...new Set([...current.filter((entryId) => currentEntryIds.has(entryId)), ...newlyAvailableIds])]
     })
+
+    seenInvoiceEntryIdsByClient.current.set(invoiceClientId, currentEntryIds)
   }, [invoiceEntries, invoiceClientId])
 
   useEffect(() => {
