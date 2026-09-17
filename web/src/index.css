@@ -633,10 +633,9 @@ a {
   margin-top: 14px;
 }
 
-.invoice-line-item__remove {
-  min-width: 46px;
+.invoice-line-item__add {
   min-height: 46px;
-  padding: 0;
+  white-space: nowrap;
 }
 
 .selection-card {
@@ -659,6 +658,23 @@ a {
   display: inline-block;
   margin-top: 10px;
   color: var(--text-soft);
+}
+
+.selection-card--adjustment {
+  grid-template-columns: auto 1fr auto;
+  border-color: rgba(14, 118, 112, 0.24);
+}
+
+.selection-card--adjustment small {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.selection-card__remove {
+  align-self: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
 }
 
 .calendar-toolbar {
@@ -1272,6 +1288,14 @@ a {
 
   .invoice-line-item__amount {
     min-width: 132px;
+  }
+
+  .invoice-line-item__add {
+    grid-column: 2;
+  }
+
+  .selection-card--adjustment {
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .list-row__meta,

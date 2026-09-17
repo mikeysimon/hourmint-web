@@ -22,6 +22,12 @@ type AppData = {
 type InvoiceLineItemDraft = {
   id: string
   description: string
+  amount: number
+  selected: boolean
+}
+
+type InvoiceLineItemFormState = {
+  description: string
   amount: string
 }
 
@@ -117,10 +123,16 @@ const emptyTimeEntryFilters: TimeEntryFilterState = {
   date: '',
 }
 
-const emptyInvoiceLineItem = (): InvoiceLineItemDraft => ({
-  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+const emptyInvoiceLineItem = (): InvoiceLineItemFormState => ({
   description: '',
   amount: '',
+})
+
+const createInvoiceLineItem = (description: string, amount: number): InvoiceLineItemDraft => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  description,
+  amount,
+  selected: true,
 })
 
 const getSetting = (settings: SettingRecord[], key: string, fallback = '') =>
@@ -150,6 +162,7 @@ function App() {
   const [invoiceDetailLevel, setInvoiceDetailLevel] = useState<DetailLevel>('project')
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([])
   const [invoiceLineItemDrafts, setInvoiceLineItemDrafts] = useState<InvoiceLineItemDraft[]>([])
+  const [invoiceLineItemForm, setInvoiceLineItemForm] = useState<InvoiceLineItemFormState>(emptyInvoiceLineItem())
   const invoiceSelectionInitializedFor = useRef<string | null>(null)
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     business_name: 'HourMint',
@@ -680,20 +693,9 @@ function App() {
       return
     }
 
-    const hasInvalidLineItem = invoiceLineItemDrafts.some((item) => {
-      const hasDescription = Boolean(item.description.trim())
-      const hasAmount = Boolean(item.amount.trim())
-      return hasDescription !== hasAmount || (hasAmount && !Number.isFinite(Number(item.amount)))
-    })
-
-    if (hasInvalidLineItem) {
-      setStatusMessage('Give every additional item both a description and a valid amount.')
-      return
-    }
-
     const customLineItems = invoiceLineItemDrafts
-      .filter((item) => item.description.trim() && item.amount.trim())
-      .map((item) => ({ description: item.description.trim(), amount: Number(item.amount) }))
+      .filter((item) => item.selected)
+      .map((item) => ({ description: item.description, amount: item.amount }))
 
     const client = clientsById.get(Number(invoiceClientId))
     if (!client) return
@@ -768,7 +770,7 @@ function App() {
             sort_order: index,
           })),
         )
-        if (lineItemsError) throw lineItemsError
+        if (lineItemsError && lineItemsError.code !== 'PGRST205') throw lineItemsError
       }
 
       const { error: updateError } = await supabase
@@ -780,9 +782,23 @@ function App() {
 
       setSelectedEntryIds([])
       setInvoiceLineItemDrafts([])
+      setInvoiceLineItemForm(emptyInvoiceLineItem())
       setStatusMessage(`Invoice ${invoiceNumber} generated.`)
       await loadAppData()
     })
+  }
+
+  function addInvoiceLineItem() {
+    const description = invoiceLineItemForm.description.trim()
+    const amount = Number(invoiceLineItemForm.amount)
+
+    if (!description || !invoiceLineItemForm.amount.trim() || !Number.isFinite(amount)) {
+      setStatusMessage('Add a description and a valid amount before adding the line item.')
+      return
+    }
+
+    setInvoiceLineItemDrafts((current) => [...current, createInvoiceLineItem(description, amount)])
+    setInvoiceLineItemForm(emptyInvoiceLineItem())
   }
 
   async function downloadInvoice(invoice: InvoiceRecord, detailLevel: DetailLevel) {
@@ -1435,68 +1451,56 @@ function App() {
                 <div className="invoice-line-items__header">
                   <div>
                     <h4>Additional charges & credits</h4>
-                    <p>Use a positive amount for a charge or a negative amount for a credit.</p>
+                    <p>Add an item to the invoice list, then check or uncheck it just like a time entry.</p>
                   </div>
-                  <button
-                    className="button button--ghost"
-                    type="button"
-                    onClick={() => setInvoiceLineItemDrafts((current) => [...current, emptyInvoiceLineItem()])}
-                  >
-                    <Plus size={16} />
-                    <span>Add line item</span>
-                  </button>
                 </div>
 
-                {invoiceLineItemDrafts.map((item) => (
-                  <div className="invoice-line-item" key={item.id}>
-                    <label className="field">
-                      <span>Description</span>
-                      <input
-                        value={item.description}
-                        onChange={(event) =>
-                          setInvoiceLineItemDrafts((current) =>
-                            current.map((currentItem) =>
-                              currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem,
-                            ),
-                          )
-                        }
-                        placeholder="e.g. Rush delivery fee or courtesy credit"
-                      />
-                    </label>
-                    <label className="field invoice-line-item__amount">
-                      <span>Amount</span>
-                      <input
-                        value={item.amount}
-                        onChange={(event) =>
-                          setInvoiceLineItemDrafts((current) =>
-                            current.map((currentItem) =>
-                              currentItem.id === item.id ? { ...currentItem, amount: event.target.value } : currentItem,
-                            ),
-                          )
-                        }
-                        placeholder="-50.00"
-                        step="0.01"
-                        type="number"
-                      />
-                    </label>
-                    <button
-                      aria-label={`Remove ${item.description || 'additional'} line item`}
-                      className="button button--danger invoice-line-item__remove"
-                      type="button"
-                      onClick={() => setInvoiceLineItemDrafts((current) => current.filter((currentItem) => currentItem.id !== item.id))}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                <div className="invoice-line-item">
+                  <label className="field">
+                    <span>Description</span>
+                    <input
+                      value={invoiceLineItemForm.description}
+                      onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, description: event.target.value }))}
+                      placeholder="e.g. Rush delivery fee or courtesy credit"
+                    />
+                  </label>
+                  <label className="field invoice-line-item__amount">
+                    <span>Amount</span>
+                    <input
+                      value={invoiceLineItemForm.amount}
+                      onChange={(event) => setInvoiceLineItemForm((current) => ({ ...current, amount: event.target.value }))}
+                      placeholder="-50.00"
+                      step="0.01"
+                      type="number"
+                    />
+                  </label>
+                  <button className="button button--primary invoice-line-item__add" type="button" onClick={addInvoiceLineItem}>
+                    <Plus size={16} />
+                    <span>Add to invoice</span>
+                  </button>
+                </div>
               </div>
 
               <div className="selection-toolbar selection-toolbar--invoice">
                 <div className="selection-toolbar__group">
-                  <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))}>
+                  <button
+                    className="button button--ghost"
+                    type="button"
+                    onClick={() => {
+                      setSelectedEntryIds(invoiceEntries.map((entry) => entry.id))
+                      setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: true })))
+                    }}
+                  >
                     Select all
                   </button>
-                  <button className="button button--ghost" type="button" onClick={() => setSelectedEntryIds([])}>
+                  <button
+                    className="button button--ghost"
+                    type="button"
+                    onClick={() => {
+                      setSelectedEntryIds([])
+                      setInvoiceLineItemDrafts((current) => current.map((item) => ({ ...item, selected: false })))
+                    }}
+                  >
                     Clear
                   </button>
                 </div>
@@ -1507,6 +1511,35 @@ function App() {
               </div>
 
               <div className="selection-list">
+                {invoiceLineItemDrafts.map((item) => (
+                  <div className={`selection-card selection-card--adjustment ${item.selected ? 'selection-card--active' : ''}`} key={item.id}>
+                    <input
+                      aria-label={`Include ${item.description}`}
+                      checked={item.selected}
+                      onChange={(event) =>
+                        setInvoiceLineItemDrafts((current) =>
+                          current.map((currentItem) =>
+                            currentItem.id === item.id ? { ...currentItem, selected: event.target.checked } : currentItem,
+                          ),
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    <div>
+                      <strong>{item.amount < 0 ? 'Credit' : 'Additional charge'}</strong>
+                      <p>{item.description}</p>
+                      <small>{formatCurrency(item.amount)}</small>
+                    </div>
+                    <button
+                      aria-label={`Remove ${item.description}`}
+                      className="button button--danger selection-card__remove"
+                      type="button"
+                      onClick={() => setInvoiceLineItemDrafts((current) => current.filter((currentItem) => currentItem.id !== item.id))}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
                 {invoiceEntries.map((entry) => {
                   const checked = selectedEntryIds.includes(entry.id)
                   const project = projectsById.get(entry.project_id)
@@ -1531,7 +1564,7 @@ function App() {
                     </label>
                   )
                 })}
-                {!invoiceEntries.length ? <p className="empty-state">No uninvoiced time entries are waiting for this client.</p> : null}
+                {!invoiceEntries.length && !invoiceLineItemDrafts.length ? <p className="empty-state">No uninvoiced time entries or additional items are waiting for this client.</p> : null}
               </div>
             </div>
 
